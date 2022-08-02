@@ -73,7 +73,7 @@ class Performance:
                     if self.create_alarms:
                         self.alarms.add_or_update_alarm(syscall, False)
                     if anomaly_score > self.max_anomaly_score_fp:
-                        self.max_anomaly_score_fp = deepcopy(anomaly_score)
+                        self.max_anomaly_score_fp = anomaly_score
                 elif self._current_exploit_time <= syscall_time:
                     self._cfp_end_exploits()
                     if self.create_alarms:
@@ -85,7 +85,7 @@ class Performance:
                     elif self._alarm is True:
                         self._tp += 1
                     if anomaly_score <= self.min_anomaly_score_tp:
-                        self.min_anomaly_score_tp = deepcopy(anomaly_score)
+                        self.min_anomaly_score_tp = anomaly_score
 
             elif anomaly_score <= self._threshold:
                 if self.create_alarms:
@@ -106,7 +106,7 @@ class Performance:
                 if self.create_alarms:
                     self.alarms.add_or_update_alarm(syscall, False)
                 if anomaly_score > self.max_anomaly_score_fp:
-                    self.max_anomaly_score_fp = deepcopy(anomaly_score)
+                    self.max_anomaly_score_fp = anomaly_score
             if anomaly_score <= self._threshold:
                 if self.create_alarms:
                     self.alarms.end_alarm()
@@ -131,8 +131,6 @@ class Performance:
         
         return final_performance
 
-    #def get_exploit_time(self):
-    #    return self._exploit_time
 
     def new_recording(self, recording: BaseRecording):
         """

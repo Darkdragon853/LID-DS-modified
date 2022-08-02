@@ -284,8 +284,7 @@ class MLP(BuildingBlock):
                 #pprint(sum(mlp_out))
                 try: 
                     label_index = label.index(1)  # getting the index of the actual next datapoint - mithilfe von index sucht man den Systemcall, der mit 1 gelabelt ist. 
-                    anomaly_score = 1 - mlp_out[label_index] # Das Ergebnis ist dann 1 - die Sicherheit des MLPs, dass es genau dieser Systemcall sein sollte.
-                    
+                    anomaly_score = 1 - mlp_out[label_index].item() # Das Ergebnis ist dann 1 - die Sicherheit des MLPs, dass es genau dieser Systemcall sein sollte.
                 except:
                     anomaly_score = 1
 
