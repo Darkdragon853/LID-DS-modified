@@ -7,4 +7,4 @@
 #SBATCH --time=48:00:00
 
 module load Python/3.9.6-GCCcore-11.2.0
-srun python algorithms/evaluation_stide_main.py -v $1 -s $2 -p $3 -r $4 -t $5 -f $6
+srun python algorithms/evaluation_som_main.py -v $1 -s $2 -p $3 -r $4 -t $5 -f $6

@@ -9,7 +9,7 @@ from minisom import MiniSom
 from tqdm import tqdm
 import numpy as np
 from numpy.linalg import norm
-
+from pprint import pprint
 
 class Som(BuildingBlock):
     def __init__(self, input_vector: BuildingBlock, epochs: int = 50, sigma: float = 1.0, learning_rate: float = 0.5,
@@ -109,7 +109,7 @@ class Som(BuildingBlock):
             if input_vector not in self._cache:
                 codebook_vector = np.array(self._som.quantization([input_vector])[0])
                 vector = np.array(input_vector)
-                distance = norm(vector - codebook_vector)
+                distance = norm(vector - codebook_vector).item()
                 self._cache[input_vector] = distance
             else:
                 distance = self._cache[input_vector]
