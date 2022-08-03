@@ -3,16 +3,21 @@ import os
 if __name__ == '__main__':
     
 
-    lid_ds_versions = ['LID-DS-2019',
-                       'LID-DS-2021']
+    lid_ds_versions = [
+        'LID-DS-2019',
+        'LID-DS-2021'
+        ]
     
-    algorithms = ['stide', 'ae', 'mlp', 'som']
-    algorithm = algorithms[2]
+    algorithm = 'mlp'
     
     job_counter = 0
     
-    number_of_play_back_alarms = [#'1', '2', '3',
-                                  'all']
+    number_of_play_back_alarms = [
+        '1',
+        '2',
+        '3',
+        'all'
+        ]
     
     mlp_configs = [
         '0',
@@ -22,22 +27,26 @@ if __name__ == '__main__':
         '4'
         ]
     
-    independent_validations = ['True', 
-                            #    'False'
-                               ]
+    independent_validations = [
+        'True', 
+        'False'
+        ]
     
-    learning_rates = [0.003,
-                    #   0.005,
-                    #   0.007
-                      ]
+    learning_rates = [
+        0.003,
+        0.005,
+        0.007
+        ]
     
-    back_to_dataset = ['training',
-                    #    'validation'
-                       ]
+    back_to_dataset = [
+        'training',
+        'validation'
+        ]
     
-    freezing = ['True', 
-                # 'False'
-                ]
+    freezing = [
+        'True', 
+        'False'
+        ]
     
     result_path = 'results_mlp_configs'
     
@@ -81,7 +90,7 @@ if __name__ == '__main__':
                         for back_dataset in back_to_dataset:
                             for freeze in freezing:
                                 for scenario in scenario_names:
-                                    command = f'sbatch --job-name=exp_{job_counter:03} evaluation.job {version} {scenario} {algorithm} {config} {play_back_count} {result_path} {validation_mode} {learning_rate} {back_dataset}'
+                                    command = f'sbatch --job-name=mlp_{job_counter:03} evaluation_mlp.job {version} {scenario} {algorithm} {config} {play_back_count} {result_path} {validation_mode} {learning_rate} {back_dataset}'
                                     os.system(command)
 
                                     job_counter += 1

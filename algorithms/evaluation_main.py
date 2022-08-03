@@ -228,19 +228,19 @@ if __name__ == '__main__':
     # Configuration of chosen decision engines. Choosing best configs in MLPs for equalness. Grimmers Paper.
     ####################
     
-    # STIDE
-    if args.algorithm == 'stide':
-        thread_aware = True
-        window_length = 1000
-        ngram_length = 5
-        embedding_size = 10
+    # # STIDE
+    # if args.algorithm == 'stide':
+    #     thread_aware = True
+    #     window_length = 1000
+    #     ngram_length = 5
+    #     embedding_size = 10
         
-        intEmbedding = IntEmbedding()
-        ngram = Ngram([intEmbedding], thread_aware, ngram_length)
-        decision_engine = Stide(ngram, window_length)
+    #     intEmbedding = IntEmbedding()
+    #     ngram = Ngram([intEmbedding], thread_aware, ngram_length)
+    #     decision_engine = Stide(ngram, window_length)
 
     # MLP 
-    elif args.algorithm == 'mlp':
+    if args.algorithm == 'mlp':
         independent_validation = False
         if args.use_independent_validation is not None and args.use_independent_validation == 'True':
             independent_validation = True
@@ -608,18 +608,18 @@ if __name__ == '__main__':
 
     ##### New BBs ############
     # STIDE
-    if args.algorithm == 'stide':
-        thread_aware = True
-        window_length = 1000
-        ngram_length = 5
-        embedding_size = 10
+    # if args.algorithm == 'stide':
+    #     thread_aware = True
+    #     window_length = 1000
+    #     ngram_length = 5
+    #     embedding_size = 10
         
-        intEmbedding = IntEmbedding()
-        ngram = Ngram([intEmbedding], thread_aware, ngram_length)
-        decision_engine = Stide(ngram, window_length)
+    #     intEmbedding = IntEmbedding()
+    #     ngram = Ngram([intEmbedding], thread_aware, ngram_length)
+    #     decision_engine = Stide(ngram, window_length)
 
     # MLP - Rebuilding whole IDS BBs.
-    elif args.algorithm == 'mlp':
+    if args.algorithm == 'mlp':
         
          # Hier wird eine neue Learning-Rate festgesetzt und dann das schon bestehende MLP zusätzlich auf den zurückgespielten Beispielen trainiert!
         if args.learning_rate != learning_rate:
@@ -813,7 +813,7 @@ if __name__ == '__main__':
         else: 
             ids_retrained.determine_threshold()
         
-    elif args.to_dataset_playing_back == 'validation' and independent_validation:   # Hier wird der Schwellenwert noch neu bestimmt.
+    elif args.to_dataset_playing_back == 'validation' and independent_validation: # Hier wird der Schwellenwert noch neu bestimmt.
         ids_retrained.determine_threshold()  
         dataloader.unload_revalidation_data()
     else: 
