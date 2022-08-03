@@ -413,7 +413,7 @@ if __name__ == '__main__':
             json.dump(performance.alarms.get_alarms_as_dict(), jsonfile, default=str, indent=2)
     
     # -----------------        This will be my personal space right here        ------------------------------- 
-    false_alarm_list = [alarm for alarm in performance.alarms.alarms if not alarm.correct]
+    false_alarm_list = [alarm for alarm in performance.alarms.alarm_list if not alarm.correct]
     #pprint(false_alarm_list)
     
     # An diesem Punkt sind sämtliche false-Alarms in der false-alarm-list.

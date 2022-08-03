@@ -224,7 +224,7 @@ if __name__ == '__main__':
     # ---------------------------------------------------------------------------------------------------------#    
         
     # Extracting Systemcalls from False Alarms
-    false_alarm_list = [alarm for alarm in performance.alarms.alarms if not alarm.correct]
+    false_alarm_list = [alarm for alarm in performance.alarms.alarm_list if not alarm.correct]
     
     # Stop all of this if we didn't found any false alarms. Empty lists are considered false.
     if not false_alarm_list:

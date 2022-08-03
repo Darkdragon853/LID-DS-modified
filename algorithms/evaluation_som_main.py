@@ -1,4 +1,3 @@
-from multiprocessing import cpu_count
 import os
 import sys
 import json
@@ -13,8 +12,10 @@ from functools import reduce
 from time import time
 
 from algorithms.decision_engines.mlp import MLP
+from algorithms.decision_engines.som import Som
 from algorithms.decision_engines.stide import Stide
 from algorithms.ids import IDS
+from algorithms.features.impl.ngram_minus_one import NgramMinusOne
 from algorithms.features.impl.select import Select
 from algorithms.features.impl.int_embedding import IntEmbedding
 from algorithms.features.impl.ngram import Ngram
@@ -29,19 +30,12 @@ from algorithms.performance_measurement import Performance
 from dataloader.dataloader_factory import dataloader_factory
 from dataloader.direction import Direction
 
-
-# CONSTANTS
-LEARNING_RATE_CONSTANT = 0.003
-
-
-
 class FalseAlertContainer:
-    def __init__(self, alarm, alarm_recording_list, window_length, ngram_length, thread_aware) -> None:
+    def __init__(self, alarm, alarm_recording_list, window_length, ngram_length) -> None:
         self.alarm = alarm
         self.alarm_recording_list = alarm_recording_list
         self.window_length = window_length
         self.ngram_length = ngram_length
-        self.thread_aware = thread_aware
     
     
 class FalseAlertResult:
@@ -105,7 +99,7 @@ def construct_Syscalls(container: FalseAlertContainer) -> FalseAlertResult:
     
     systemcall_list = [systemcall for systemcall in current_recording.syscalls() if systemcall.line_id >= max([alarm.first_line_id - container.window_length, 0]) and systemcall.line_id <= alarm.last_line_id] 
     
-    if container.thread_aware:
+    if thread_aware:
             
         backwards_counter = max([alarm.first_line_id - container.window_length -1, 0]) 
         if backwards_counter != 0:
@@ -179,33 +173,22 @@ def parse_cli_arguments():
     parser.add_argument('--play_back_count_alarms', '-p' , choices=['1', '2', '3', 'all'], default='all', help='Number of False Alarms that shall be played back or all.')
     parser.add_argument('--results', '-r', default='results', help='Path for the results of the evaluation')
     parser.add_argument('--base-path', '-b', default='/work/user/lz603fxao/Material', help='Base path of the LID-DS')
-    parser.add_argument('--config', '-c', choices=['0', '1', '2', '3', '4'], default='0', help='Configuration of the MLP which will be used in this evaluation')
+    parser.add_argument('--config', '-c', choices=['0', '1', '2'], default='0', help='Configuration of the MLP which will be used in this evaluation')
     parser.add_argument('--use-independent-validation', '-u', choices=['True', 'False'], required=False, help='Indicates if the MLP will use the validation dataset for threshold AND stop of training or only for threshold.')
-    parser.add_argument('--learning-rate', '-l', default=LEARNING_RATE_CONSTANT, type=float, choices=numpy.arange(0.001, 0.010, 0.001), help='Learning rate of the mlp algorithm of the new IDS')
-    parser.add_argument('--to-dataset-playing-back', '-t', default = 'training', choices=['training', 'validation'], help='Decides in which dataset the false-positives will be played back.')
-    parser.add_argument('--freeze-on-retraining', '-f', default='False', choices=['True', 'False'], help='After the retraining of the IDS, will you freeze the original threshold or calculate a new one?')
+    parser.add_argument('--learning-rate', '-l', default=0.003, type=float, choices=numpy.arange(0.003, 0.010, 0.001), help='Learning rate of the mlp algorithm of the new IDS')
 
     return parser.parse_args()
-    
+
 
 # Startpunkt
 if __name__ == '__main__':
     
     args = parse_cli_arguments()
     
-    # Verwaltet hier die Abbrüche irreführender Kombinationen.
-     
     # Check ob die Kombination vorhanden ist.
-    if args.version == 'LID-DS-2019' and args.scenario in ['CWE-89-SQL-injection', 'CVE-2020-23839', 'CVE-2020-9484', 'CVE-2020-13942' , 'Juice-Shop' , 'CVE-2017-12635_6']:
-        sys.exit('This combination of LID-DS Version and Scenario aren\'t available.')
-     
-    # Check ob ins Valid-Set gespielt wird, dabei aber Freeze Threshold verlangt wird oder eine andere learning rate.
-    if args.to_dataset_playing_back == 'validation':
-        if args.freeze_on_retraining == 'True':
-            sys.exit('This combination can\'t be played since we want to play back the examples in the validation set. Therefore we MUST NOT freeze the threshold.')
-        elif args.learning_rate != LEARNING_RATE_CONSTANT:
-            sys.exit(f'Can\'t change the learning rate when we play back in the validation set. This should only influence the threshold. Default learning rate is {LEARNING_RATE_CONSTANT}.')
-    
+    if args.version == 'LID-DS-2019':
+        if args.scenario in ['CWE-89-SQL-injection', 'CVE-2020-23839', 'CVE-2020-9484', 'CVE-2020-13942' , 'Juice-Shop' , 'CVE-2017-12635_6']:
+            sys.exit('This combination of LID-DS Version and Scenario aren\'t available.')
      
     pprint("Performing Host-based Intrusion Detection with:")
     pprint(f"Version: {args.version}") 
@@ -215,8 +198,6 @@ if __name__ == '__main__':
     pprint(f"Learning-Rate of new IDS: {args.learning_rate}")
     pprint(f"State of independent validation: {args.use_independent_validation}")
     pprint(f"Number of maximal played back false alarms: {args.play_back_count_alarms}")
-    pprint(f"Playing back into {args.to_dataset_playing_back} datatset.")
-    pprint(f"Treshold freezing on seconds IDS: {args.freeze_on_retraining}")
     pprint(f"Results path: {args.results}")
     pprint(f"Base path: {args.base_path}")
     
@@ -225,22 +206,22 @@ if __name__ == '__main__':
     
     #--------------------
         
-    # Configuration of chosen decision engines. Choosing best configs in MLPs for equalness. Grimmers Paper.
+    # Configuration of chosen decision engines. Choosing best configs in M. Grimmers Paper.
     ####################
     
-    # # STIDE
-    # if args.algorithm == 'stide':
-    #     thread_aware = True
-    #     window_length = 1000
-    #     ngram_length = 5
-    #     embedding_size = 10
+    # STIDE
+    if args.algorithm == 'stide':
+        thread_aware = True
+        window_length = 1000
+        ngram_length = 5
+        embedding_size = 10
         
-    #     intEmbedding = IntEmbedding()
-    #     ngram = Ngram([intEmbedding], thread_aware, ngram_length)
-    #     decision_engine = Stide(ngram, window_length)
+        intEmbedding = IntEmbedding()
+        ngram = Ngram([intEmbedding], thread_aware, ngram_length)
+        decision_engine = Stide(ngram, window_length)
 
     # MLP 
-    if args.algorithm == 'mlp':
+    elif args.algorithm == 'mlp':
         independent_validation = False
         if args.use_independent_validation is not None and args.use_independent_validation == 'True':
             independent_validation = True
@@ -402,106 +383,52 @@ if __name__ == '__main__':
     
             decision_engine = StreamSum(mlp, thread_aware, window_length)
             
-        elif args.config == '3': 
-            # Settings
-            ngram_length = 5
-            thread_aware = True
-            hidden_size = 64
-            hidden_layers = 4
-            batch_size = 512
-            learning_rate = 0.003
-            window_length = 20
-            
-            settings_dict['ngram_length'] = ngram_length
-            settings_dict['thread_aware'] = thread_aware
-            settings_dict['hidden_size'] = hidden_size
-            settings_dict['hidden_layers'] = hidden_layers
-            settings_dict['batch_size'] = batch_size
-            settings_dict['learning_rate'] = learning_rate
-            settings_dict['window_length'] = window_length
-            
-            # Calculate Embedding_size
-            temp_i = IntEmbedding()
-            temp_ohe = OneHotEncoding(temp_i)
-            mini_ids = IDS(dataloader, temp_ohe, False, False)
-            ohe_embedding_size = temp_ohe.get_embedding_size()
-            
-            # Building Blocks
-            inte = IntEmbedding()
-            
-            ohe = OneHotEncoding(inte)
-            
-            ngram_ohe = Ngram([ohe], thread_aware, ngram_length + 1)
-            
-            select_ohe = Select(ngram_ohe, 0, (ngram_length * ohe_embedding_size)) 
-            
-            mlp = MLP(select_ohe,
-                ohe,
-                hidden_size,
-                hidden_layers,
-                batch_size,
-                learning_rate,
-                independent_validation
-            )   
-    
-            decision_engine = StreamSum(mlp, thread_aware, window_length)
-        
-        elif args.config == '4':
-          # Settings
-            ngram_length = 7
-            w2v_vector_size = 8
-            w2v_window_size = 20
-            thread_aware = True
-            hidden_size = 64
-            hidden_layers = 2
-            batch_size = 256
-            w2v_epochs = 1000
-            learning_rate = 0.003
-            window_length = 40       
-            
-            
-            settings_dict['ngram_length'] = ngram_length
-            settings_dict['w2v_vector_size'] = w2v_vector_size
-            settings_dict['w2v_window_size'] = w2v_window_size
-            settings_dict['thread_aware'] = thread_aware
-            settings_dict['hidden_size'] = hidden_size
-            settings_dict['hidden_layers'] = hidden_layers
-            settings_dict['batch_size'] = batch_size
-            settings_dict['w2v_epochs'] = w2v_epochs
-            settings_dict['learning_rate'] = learning_rate
-            settings_dict['window_length'] = window_length
-            
-            
-            # Building Blocks
-
-            inte = IntEmbedding()
-
-            w2v = W2VEmbedding(word=inte,
-                           vector_size=w2v_vector_size,
-                           window_size=w2v_window_size,
-                           epochs=w2v_epochs,
-                           thread_aware=thread_aware)
-            
-            ohe = OneHotEncoding(inte)
-
-            ngram = Ngram([w2v], thread_aware, ngram_length + 1) 
-
-            select = Select(ngram, start = 0, end = (w2v_vector_size * ngram_length)) 
-
-            mlp = MLP(select,
-                ohe,
-                hidden_size,
-                hidden_layers,
-                batch_size,
-                learning_rate,
-                independent_validation
-            )
-            
-            decision_engine = StreamSum(mlp, thread_aware, window_length)   
-            
         else:
             exit('Unknown configuration of MLP. Exiting.')
         
+    elif args.algorithm == 'som':
+        settings_dict = {}
+        
+        # Settings
+        ngram_length = 9
+        w2v_vector_size = 11
+        w2v_window_size = 10
+        w2v_epochs = 1000
+        som_epochs = 100
+        som_size = 8
+        thread_aware = True
+        learning_rate = 0.5
+        window_length = 10
+        
+        settings_dict['ngram_length'] = ngram_length
+        settings_dict['w2v_vector_size'] = w2v_vector_size
+        settings_dict['w2v_window_size'] = w2v_window_size
+        settings_dict['w2v_epochs'] = w2v_epochs
+        settings_dict['som_epochs'] = som_epochs
+        settings_dict['som_size'] = som_size
+        settings_dict['thread_aware'] = thread_aware
+
+
+        # Building Blocks
+        syscall = SyscallName()
+        intEmbedding = IntEmbedding()
+        w2v = W2VEmbedding(word=intEmbedding,
+                           vector_size= w2v_vector_size,
+                           window_size= w2v_window_size,
+                           epochs= w2v_epochs,
+                           thread_aware= thread_aware
+                           )
+        
+        ngram = Ngram([w2v], thread_aware, ngram_length)
+        som = Som(input_vector= ngram,
+                  epochs= som_epochs,
+                  size= som_size,
+                  learning_rate= learning_rate
+                  )
+        stream = StreamSum(som, thread_aware, window_length)
+        
+        decision_engine = stream 
+    
     
     # Stopping Randomness
     torch.manual_seed(0)
@@ -522,7 +449,7 @@ if __name__ == '__main__':
     ids.determine_threshold()   
     performance = ids.detect_parallel()
     
-    # pprint(performance)
+    pprint(performance)
     results = performance.get_results()
     pprint(results)
     
@@ -548,7 +475,7 @@ if __name__ == '__main__':
         json.dump(performance.alarms.get_alarms_as_dict(), jsonfile, default=str, indent=2)
         
     # ---------------------------------------------------------------------------------------------------------#    
-        
+    
     # Extracting Systemcalls from False Alarms
     false_alarm_list = [alarm for alarm in performance.alarms.alarm_list if not alarm.correct]
     
@@ -566,16 +493,11 @@ if __name__ == '__main__':
     for alarm in false_alarm_list: 
         if args.play_back_count_alarms != 'all' and counter == int(args.play_back_count_alarms):
             break
-        containerList.append(FalseAlertContainer(alarm, false_alarm_recording_list, window_length, ngram_length, thread_aware))
+        containerList.append(FalseAlertContainer(alarm, false_alarm_recording_list, window_length, ngram_length))
         counter += 1    
     
     pprint("Playing back false positive alarms:")
-    if sys.platform in ['win32', 'cygwin']:
-        max_workers = 4 # Musste das begrenzen da mir sonst alles abschmierte
-    else:
-        max_workers = min(32, cpu_count() + 4)
-    
-    false_alarm_results = process_map(construct_Syscalls, containerList, chunksize = 50, max_workers=max_workers)
+    false_alarm_results = process_map(construct_Syscalls, containerList, chunksize = 50)
     final_playback = reduce(FalseAlertResult.add, false_alarm_results)
     
     
@@ -596,34 +518,28 @@ if __name__ == '__main__':
     # pprint("All Artifical Recordings:")
     # pprint(all_recordings)
 
-
-    if args.to_dataset_playing_back == 'training':
-        # Für Retraining
-        dataloader.set_retraining_data(all_recordings) # Fügt die neuen Trainingsbeispiele als zusätzliches Training ein.
-    elif args.to_dataset_playing_back == 'validation' and independent_validation:
-        dataloader.set_revalidation_data(all_recordings) # Fügt die neuen Trainingsbeispiele bei den Validierungsdaten ein.
-    
+    dataloader.set_revalidation_data(all_recordings) # Fügt die neuen Trainingsbeispiele bei den Validierungsdaten ein.
+    # dataloader.set_retraining_data(all_recordings) # Fügt die neuen Trainingsbeispiele als zusätzliches Training ein.
 
     ### Rebuilding IDS
 
     ##### New BBs ############
     # STIDE
-    # if args.algorithm == 'stide':
-    #     thread_aware = True
-    #     window_length = 1000
-    #     ngram_length = 5
-    #     embedding_size = 10
+    if args.algorithm == 'stide':
+        thread_aware = True
+        window_length = 1000
+        ngram_length = 5
+        embedding_size = 10
         
-    #     intEmbedding = IntEmbedding()
-    #     ngram = Ngram([intEmbedding], thread_aware, ngram_length)
-    #     decision_engine = Stide(ngram, window_length)
+        intEmbedding = IntEmbedding()
+        ngram = Ngram([intEmbedding], thread_aware, ngram_length)
+        decision_engine = Stide(ngram, window_length)
 
     # MLP - Rebuilding whole IDS BBs.
-    if args.algorithm == 'mlp':
+    elif args.algorithm == 'mlp':
         
          # Hier wird eine neue Learning-Rate festgesetzt und dann das schon bestehende MLP zusätzlich auf den zurückgespielten Beispielen trainiert!
         if args.learning_rate != learning_rate:
-            pprint("Learning rate wasn't original learning rate. Preparing necessary steps.")
             mlp.set_learning_rate(args.learning_rate)
             mlp._training_set = set()
             dataloader.overwrite_training_data_with_retraining()
@@ -791,6 +707,49 @@ if __name__ == '__main__':
             else:
                 exit('Unknown configuration of MLP. Exiting.')
         
+    elif args.algorithm == 'som':
+        settings_dict = {}
+        
+        # Settings
+        ngram_length = 9
+        w2v_vector_size = 11
+        w2v_window_size = 10
+        w2v_epochs = 1000
+        som_epochs = 100
+        som_size = 8
+        thread_aware = True
+        learning_rate = 0.5
+        window_length = 10
+        
+        settings_dict['ngram_length'] = ngram_length
+        settings_dict['w2v_vector_size'] = w2v_vector_size
+        settings_dict['w2v_window_size'] = w2v_window_size
+        settings_dict['w2v_epochs'] = w2v_epochs
+        settings_dict['som_epochs'] = som_epochs
+        settings_dict['som_size'] = som_size
+        settings_dict['thread_aware'] = thread_aware
+
+
+        # Building Blocks
+        syscall = SyscallName()
+        intEmbedding = IntEmbedding()
+        w2v = W2VEmbedding(word=intEmbedding,
+                           vector_size= w2v_vector_size,
+                           window_size= w2v_window_size,
+                           epochs= w2v_epochs,
+                           thread_aware= thread_aware
+                           )
+        
+        ngram = Ngram([w2v], thread_aware, ngram_length)
+        som = Som(input_vector= ngram,
+                  epochs= som_epochs,
+                  size= som_size,
+                  learning_rate= learning_rate
+                  )
+        stream = StreamSum(som, thread_aware, window_length)
+        
+        decision_engine = stream 
+        
         
     # Resetting seeds
     torch.manual_seed(0)
@@ -802,28 +761,18 @@ if __name__ == '__main__':
         resulting_building_block=decision_engine,
         plot_switch=False,
         create_alarms=True)
-
-    # Unloading datasets and managing thresholds        
-    if args.to_dataset_playing_back == 'training':
-        # Für Retraining
-        dataloader.unload_retraining_data() # Cleaning dataloader for performance issues
-        if args.freeze_on_retraining == 'True':
-            pprint(f"Freezing Threshold on: {ids.threshold}")
-            ids_retrained.threshold = ids.threshold
-        else: 
-            ids_retrained.determine_threshold()
         
-    elif args.to_dataset_playing_back == 'validation' and independent_validation: # Hier wird der Schwellenwert noch neu bestimmt.
-        ids_retrained.determine_threshold()  
-        dataloader.unload_revalidation_data()
-    else: 
-        ids_retrained.threshold = performance.max_anomaly_score_fp # NUR FÜR INDEPENDENT_VALIDATION = FALSE:
-        pprint(f"Threshold now on {ids_retrained.threshold} ")
-    
-
+    dataloader.unload_retraining_data() # Cleaning dataloader for performance issues
+        
     pprint("At evaluation:")
-    performance_new = ids_retrained.detect_parallel()
-    # pprint(performance_new)        
+    
+    ids_retrained.determine_threshold()  # Hier wird der Schwellenwert noch neu bestimmt.
+    dataloader.unload_revalidation_data()
+    
+    # pprint(f"Freezing Threshold on: {ids.threshold}") # Schwellenwert-Freeze
+    # ids_retrained.threshold = ids.threshold
+    
+    performance_new = ids_retrained.detect_parallel()        
     results_new = performance_new.get_results()
     pprint(results_new)
 
