@@ -2,7 +2,7 @@ import math
 import sys
 
 from matplotlib import pyplot as plt
-
+from time import time
 from algorithms.building_block import BuildingBlock
 from dataloader.syscall import Syscall
 from minisom import MiniSom
@@ -43,6 +43,7 @@ class Som(BuildingBlock):
         self._max_size = max_size
         self._size = size
         self.custom_fields = {}
+        self._myCounter = 0
 
     def depends_on(self):
         return self._dependency_list
@@ -113,8 +114,12 @@ class Som(BuildingBlock):
                 self._cache[input_vector] = distance
             else:
                 distance = self._cache[input_vector]
+            # end = time()
+            # pprint(f'Time needed: {end - start}')
             return distance
         else:
+            # end = time()
+            # pprint(f'Time needed: {end - start}')
             return None
 
     def show_distance_plot(self):
@@ -148,5 +153,5 @@ class Som(BuildingBlock):
                 If the topographic error is 0, no error occurred.
                 If 1, the topology was not preserved for any of the samples.
         """
-        self.custom_fields['training_quantization_error'] = self._som.quantization_error(self._buffer)
-        self.custom_fields['training_quantization_error'] = self._som.topographic_error(self._buffer)
+        self.custom_fields['training_quantization_error'] = self._som.quantization_error(list(self._buffer))
+        self.custom_fields['training_topographic_error'] = self._som.topographic_error(list(self._buffer))

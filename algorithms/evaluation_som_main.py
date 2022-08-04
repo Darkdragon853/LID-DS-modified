@@ -191,7 +191,7 @@ if __name__ == '__main__':
     pprint(f"Version: {args.version}") 
     pprint(f"Scenario: {args.scenario}")
     pprint(f"Configuration: {args.config}")
-    pprint(f"Learning-Rate of new IDS: {args.learning_rate}")
+    pprint(f"Learning-Rate of new IDS: {args.learning_rate}") #TODO Noch nicht implementiert.
     pprint(f"Number of maximal played back false alarms: {args.play_back_count_alarms}")
     pprint(f"Results path: {args.results}")
     pprint(f"Base path: {args.base_path}")
@@ -282,6 +282,10 @@ if __name__ == '__main__':
     pprint(performance)
     results = performance.get_results()
     pprint(results)
+    
+    pprint('First SOM:')
+    som.calculate_errors()
+    pprint(som.custom_fields)
     
     # Enrich results with configuration
     config_name = f"algorithm_som_c_{args.config}_lr_{args.learning_rate}_n_{ngram_length}_t_{thread_aware}"
@@ -443,6 +447,10 @@ if __name__ == '__main__':
     results_new = performance_new.get_results()
     pprint(results_new)
 
+    pprint('Second SOM:')
+    som.calculate_errors()
+    pprint(som.custom_fields)
+    
     # Preparing second results
     algorithm_name = f"som_retrained"
     config_name = f"algorithm_{algorithm_name}_c_{args.config}_p_{args.play_back_count_alarms}_lr_{args.learning_rate}_n_{ngram_length}_w_{window_length}_t_{thread_aware}"
