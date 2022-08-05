@@ -180,7 +180,7 @@ def parse_cli_arguments():
     parser.add_argument('--results', '-r', default='results', help='Path for the results of the evaluation')
     parser.add_argument('--base-path', '-b', default='/work/user/lz603fxao/Material', help='Base path of the LID-DS')
     parser.add_argument('--config', '-c', choices=['0', '1', '2', '3', '4'], default='0', help='Configuration of the MLP which will be used in this evaluation')
-    parser.add_argument('--use-independent-validation', '-u', choices=['True', 'False'], required=False, help='Indicates if the MLP will use the validation dataset for threshold AND stop of training or only for threshold.')
+    # parser.add_argument('--use-independent-validation', '-u', choices=['True', 'False'], required=False, help='Indicates if the MLP will use the validation dataset for threshold AND stop of training or only for threshold.')
     parser.add_argument('--learning-rate', '-l', default=LEARNING_RATE_CONSTANT, type=float, choices=numpy.arange(0.001, 0.010, 0.001), help='Learning rate of the mlp algorithm of the new IDS')
     parser.add_argument('--to-dataset-playing-back', '-t', default = 'training', choices=['training', 'validation'], help='Decides in which dataset the false-positives will be played back.')
     parser.add_argument('--freeze-on-retraining', '-f', default='False', choices=['True', 'False'], help='After the retraining of the IDS, will you freeze the original threshold or calculate a new one?')
@@ -213,7 +213,7 @@ if __name__ == '__main__':
     pprint(f"Algorithm: {args.algorithm}")
     pprint(f"Configuration: {args.config}")
     pprint(f"Learning-Rate of new IDS: {args.learning_rate}")
-    pprint(f"State of independent validation: {args.use_independent_validation}")
+    # pprint(f"State of independent validation: {args.use_independent_validation}")
     pprint(f"Number of maximal played back false alarms: {args.play_back_count_alarms}")
     pprint(f"Playing back into {args.to_dataset_playing_back} datatset.")
     pprint(f"Treshold freezing on seconds IDS: {args.freeze_on_retraining}")
@@ -241,11 +241,11 @@ if __name__ == '__main__':
 
     # MLP 
     if args.algorithm == 'mlp':
-        independent_validation = False
-        if args.use_independent_validation is not None and args.use_independent_validation == 'True':
-            independent_validation = True
-        else: 
-            independent_validation = False
+        # independent_validation = False
+        # if args.use_independent_validation is not None and args.use_independent_validation == 'True':
+        #     independent_validation = True
+        # else: 
+        #     independent_validation = False
         
         settings_dict = {} # Enthält die Konfig-Infos
         if args.config == '0':
@@ -296,7 +296,7 @@ if __name__ == '__main__':
                 hidden_layers,
                 batch_size,
                 learning_rate,
-                independent_validation
+                # independent_validation
             )
             
             decision_engine = StreamSum(mlp, thread_aware, window_length)
@@ -351,7 +351,7 @@ if __name__ == '__main__':
                 hidden_layers,
                 batch_size,
                 learning_rate,
-                independent_validation
+                # independent_validation
             )
             
             decision_engine = StreamSum(mlp, thread_aware, window_length)
@@ -397,7 +397,7 @@ if __name__ == '__main__':
                 hidden_layers,
                 batch_size,
                 learning_rate,
-                independent_validation
+                # independent_validation
             )   
     
             decision_engine = StreamSum(mlp, thread_aware, window_length)
@@ -441,7 +441,7 @@ if __name__ == '__main__':
                 hidden_layers,
                 batch_size,
                 learning_rate,
-                independent_validation
+                # independent_validation
             )   
     
             decision_engine = StreamSum(mlp, thread_aware, window_length)
@@ -494,7 +494,7 @@ if __name__ == '__main__':
                 hidden_layers,
                 batch_size,
                 learning_rate,
-                independent_validation
+                # independent_validation
             )
             
             decision_engine = StreamSum(mlp, thread_aware, window_length)   
@@ -530,7 +530,8 @@ if __name__ == '__main__':
     if args.algorithm == 'stide':
         config_name = f"algorithm_{args.algorithm}_n_{ngram_length}_w_{window_length}_t_{thread_aware}" # TODO: Kann das raus?
     else: 
-        config_name = f"algorithm_{args.algorithm}_c_{args.config}_i_{args.use_independent_validation}_lr_{args.learning_rate}_n_{ngram_length}_t_{thread_aware}"
+        # config_name = f"algorithm_{args.algorithm}_c_{args.config}_i_{args.use_independent_validation}_lr_{args.learning_rate}_n_{ngram_length}_t_{thread_aware}"
+        config_name = f"algorithm_{args.algorithm}_c_{args.config}_lr_{args.learning_rate}_n_{ngram_length}_t_{thread_aware}"
     
     
     # Enrich results with configuration
@@ -540,7 +541,8 @@ if __name__ == '__main__':
         
     results['config'] = ids.get_config() # Produces strangely formatted Config-Print
     results['scenario'] =  args.version + "/" + args.scenario
-    result_path = f"{args.results}/results_{args.algorithm}_config_{args.config}_i_{args.use_independent_validation}_lr_{args.learning_rate}_{args.version}_{args.scenario}.json"
+    # result_path = f"{args.results}/results_{args.algorithm}_config_{args.config}_i_{args.use_independent_validation}_lr_{args.learning_rate}_{args.version}_{args.scenario}.json"
+    result_path = f"{args.results}/results_{args.algorithm}_config_{args.config}_lr_{args.learning_rate}_{args.version}_{args.scenario}.json"
 
     # Saving results
     save_to_json(results, result_path) 
@@ -600,9 +602,10 @@ if __name__ == '__main__':
     if args.to_dataset_playing_back == 'training':
         # Für Retraining
         dataloader.set_retraining_data(all_recordings) # Fügt die neuen Trainingsbeispiele als zusätzliches Training ein.
-    elif args.to_dataset_playing_back == 'validation' and independent_validation:
-        dataloader.set_revalidation_data(all_recordings) # Fügt die neuen Trainingsbeispiele bei den Validierungsdaten ein.
-    
+    # elif args.to_dataset_playing_back == 'validation' and independent_validation:
+    elif args.to_dataset_playing_back == 'validation':
+        # dataloader.set_revalidation_data(all_recordings) # Fügt die neuen Trainingsbeispiele bei den Validierungsdaten ein.
+        pass
 
     ### Rebuilding IDS
 
@@ -682,7 +685,7 @@ if __name__ == '__main__':
                     hidden_layers,
                     batch_size,
                     learning_rate,
-                    independent_validation
+                    # independent_validation
                 )
                 
                 decision_engine = StreamSum(mlp, thread_aware, window_length)
@@ -737,7 +740,7 @@ if __name__ == '__main__':
                     hidden_layers,
                     batch_size,
                     learning_rate,
-                    independent_validation
+                    # independent_validation
                 )
                 
                 decision_engine = StreamSum(mlp, thread_aware, window_length)
@@ -783,7 +786,7 @@ if __name__ == '__main__':
                     hidden_layers,
                     batch_size,
                     learning_rate,
-                    independent_validation
+                    # independent_validation
                 )   
         
                 decision_engine = StreamSum(mlp, thread_aware, window_length)
@@ -813,13 +816,17 @@ if __name__ == '__main__':
         else: 
             ids_retrained.determine_threshold()
         
-    elif args.to_dataset_playing_back == 'validation' and independent_validation: # Hier wird der Schwellenwert noch neu bestimmt.
-        ids_retrained.determine_threshold()  
+    # elif args.to_dataset_playing_back == 'validation' and independent_validation: # Hier wird der Schwellenwert noch neu bestimmt.
+    elif args.to_dataset_playing_back == 'validation':
+        # Entweder
+        # ids_retrained.determine_threshold()  
+        
+        # Oder aber 
+        ids_retrained.threshold = performance.max_anomaly_score_fp
+        
         dataloader.unload_revalidation_data()
-    else: 
-        ids_retrained.threshold = performance.max_anomaly_score_fp # NUR FÜR INDEPENDENT_VALIDATION = FALSE:
-        pprint(f"Threshold now on {ids_retrained.threshold} ")
-    
+    else:
+        sys.exit('Unhandled combination of playing back dataset and freezing threshold. Abborting.')
 
     pprint("At evaluation:")
     performance_new = ids_retrained.detect_parallel()
@@ -829,7 +836,8 @@ if __name__ == '__main__':
 
     # Preparing second results
     algorithm_name = f"{args.algorithm}_retrained"
-    config_name = f"algorithm_{algorithm_name}_c_{args.config}_p_{args.play_back_count_alarms}_i_{args.use_independent_validation}_lr_{args.learning_rate}_n_{ngram_length}_w_{window_length}_t_{thread_aware}"
+    # config_name = f"algorithm_{algorithm_name}_c_{args.config}_p_{args.play_back_count_alarms}_i_{args.use_independent_validation}_lr_{args.learning_rate}_n_{ngram_length}_w_{window_length}_t_{thread_aware}"
+    config_name = f"algorithm_{algorithm_name}_c_{args.config}_p_{args.play_back_count_alarms}_lr_{args.learning_rate}_n_{ngram_length}_w_{window_length}_t_{thread_aware}"
 
     # Enrich results with configuration 
     results_new['algorithm'] = algorithm_name
@@ -840,8 +848,8 @@ if __name__ == '__main__':
         
     results_new['config'] = ids.get_config() # Produces strangely formatted Config-Print
     results_new['scenario'] =  args.version + "/" + args.scenario
-    result_new_path = f"{args.results}/results_{algorithm_name}_config_{args.config}_p_{args.play_back_count_alarms}_i_{args.use_independent_validation}_lr_{args.learning_rate}_{args.version}_{args.scenario}.json"
-
+    # result_new_path = f"{args.results}/results_{algorithm_name}_config_{args.config}_p_{args.play_back_count_alarms}_i_{args.use_independent_validation}_lr_{args.learning_rate}_{args.version}_{args.scenario}.json"
+    result_new_path = f"{args.results}/results_{algorithm_name}_config_{args.config}_p_{args.play_back_count_alarms}_lr_{args.learning_rate}_{args.version}_{args.scenario}.json"
     # Save results
     save_to_json(results_new, result_new_path) 
     with open(f"{args.results}/alarms_{config_name}_{args.version}_{args.scenario}.json", 'w') as jsonfile:

@@ -12,25 +12,26 @@ if __name__ == '__main__':
     
     job_counter = 0
     
-    number_of_play_back_alarms = [
-        '1',
-        '2',
-        '3',
-        'all'
-        ]
+    # Default is all.
+    # number_of_play_back_alarms = [
+    #     '1',
+    #     '2',
+    #     '3',
+    #     'all'
+    #     ]
     
     mlp_configs = [
-        '0',
-        '1',
+        # '0',
+        # '1',
         '2',
         '3',
         '4'
         ]
     
-    independent_validations = [
-        'True', 
-        'False'
-        ]
+    # independent_validations = [
+        # 'True', 
+        # 'False'
+        # ]
     
     learning_rates = [
         0.003,
@@ -83,14 +84,20 @@ if __name__ == '__main__':
                "ZipSlip",
            ]    
            
-        for play_back_count in number_of_play_back_alarms:
-            for config in mlp_configs:
+        # for play_back_count in number_of_play_back_alarms:
+        for config in mlp_configs:
                 for learning_rate in learning_rates:
-                    for validation_mode in independent_validations:
+                    # for validation_mode in independent_validations:
                         for back_dataset in back_to_dataset:
                             for freeze in freezing:
                                 for scenario in scenario_names:
-                                    command = f'sbatch --job-name=mlp_{job_counter:03} evaluation_mlp.job {version} {scenario} {algorithm} {config} {play_back_count} {result_path} {validation_mode} {learning_rate} {back_dataset}'
+                                    if back_dataset == 'validation': 
+                                        if learning_rate != 0.003: # Ergibt anders keinen Sinn bei neuem Schwellenwert
+                                            continue
+                                        if freeze == 'True':
+                                            continue # Ergibt anders keinen Sinn bei neuem Schwellenweert.
+                                    
+                                    command = f'sbatch --job-name=mlp{job_counter:03} evaluation_mlp.job {version} {scenario} {algorithm} {config} {result_path} {learning_rate} {back_dataset}'
                                     os.system(command)
 
                                     job_counter += 1

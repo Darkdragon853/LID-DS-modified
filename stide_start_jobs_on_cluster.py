@@ -69,7 +69,7 @@ if __name__ == '__main__':
                         if back_dataset == 'validation' and freeze == 'True':
                             continue
                         
-                        command = f'sbatch --job-name=stide_{job_counter:03} evaluation_stide.job {version} {scenario} {play_back_count} {result_path} {back_dataset} {freeze}'
+                        command = f'sbatch --job-name=stide{job_counter:03} evaluation_stide.job {version} {scenario} {play_back_count} {result_path} {back_dataset} {freeze}'
                         
                         os.system(command)
                         job_counter += 1
