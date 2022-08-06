@@ -193,6 +193,8 @@ if __name__ == '__main__':
     pprint(f"Configuration: {args.config}")
     pprint(f"Learning-Rate of new IDS: {args.learning_rate}") #TODO Noch nicht implementiert.
     pprint(f"Number of maximal played back false alarms: {args.play_back_count_alarms}")
+    pprint(f"Playing back into {args.to_dataset_playing_back} datatset.")
+    pprint(f"Treshold freezing on seconds IDS: {args.freeze_on_retraining}")
     pprint(f"Results path: {args.results}")
     pprint(f"Base path: {args.base_path}")
     
@@ -259,13 +261,6 @@ if __name__ == '__main__':
     # decision_engine = stream 
     decision_engine = som
 
-        
-    # Stopping Randomness
-    # torch.manual_seed(0)
-    # random.seed(0)
-    # numpy.random.seed(0)
-    # torch.use_deterministic_algorithms(True)
-    
     # IDS
     ###################
     generate_and_write_alarms = True
@@ -278,6 +273,7 @@ if __name__ == '__main__':
     pprint("At evaluation:")
     ids.determine_threshold()   
     performance = ids.detect_parallel()
+    
     
     pprint(performance)
     results = performance.get_results()
@@ -409,13 +405,7 @@ if __name__ == '__main__':
     stream = StreamSum(som, thread_aware, window_length)
     
     # decision_engine = stream 
-    decision_engine = som
-
-        
-    # Resetting seeds
-    # torch.manual_seed(0)
-    # random.seed(0)
-    # numpy.random.seed(0)    
+    decision_engine = som  
         
     ######## New IDS ########################
     ids_retrained = IDS(data_loader=dataloader,

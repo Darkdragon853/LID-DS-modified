@@ -522,7 +522,7 @@ if __name__ == '__main__':
     ids.determine_threshold()   
     performance = ids.detect_parallel()
     
-    # pprint(performance)
+    pprint(performance)
     results = performance.get_results()
     pprint(results)
     
@@ -604,8 +604,7 @@ if __name__ == '__main__':
         dataloader.set_retraining_data(all_recordings) # Fügt die neuen Trainingsbeispiele als zusätzliches Training ein.
     # elif args.to_dataset_playing_back == 'validation' and independent_validation:
     elif args.to_dataset_playing_back == 'validation':
-        # dataloader.set_revalidation_data(all_recordings) # Fügt die neuen Trainingsbeispiele bei den Validierungsdaten ein.
-        pass
+        dataloader.set_revalidation_data(all_recordings) # Fügt die neuen Trainingsbeispiele bei den Validierungsdaten ein.
 
     ### Rebuilding IDS
 
@@ -821,7 +820,7 @@ if __name__ == '__main__':
         # Entweder
         # ids_retrained.determine_threshold()  
         
-        # Oder aber 
+        # Oder aber das hier. Damit garantiere ich, dass sich nur der Schwellenwert, nicht aber das MLP ändert.
         ids_retrained.threshold = performance.max_anomaly_score_fp
         
         dataloader.unload_revalidation_data()
@@ -830,7 +829,7 @@ if __name__ == '__main__':
 
     pprint("At evaluation:")
     performance_new = ids_retrained.detect_parallel()
-    # pprint(performance_new)        
+    pprint(performance_new)        
     results_new = performance_new.get_results()
     pprint(results_new)
 

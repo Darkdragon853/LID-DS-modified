@@ -7,7 +7,7 @@ if __name__ == '__main__':
         'LID-DS-2021'
         ]
 
-    job_counter = 0
+    job_counter = 1
     
     number_of_play_back_alarms = [
         '1',

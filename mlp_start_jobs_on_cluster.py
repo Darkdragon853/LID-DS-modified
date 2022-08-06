@@ -10,7 +10,7 @@ if __name__ == '__main__':
     
     algorithm = 'mlp'
     
-    job_counter = 0
+    job_counter = 1
     
     # Default is all.
     # number_of_play_back_alarms = [
@@ -49,7 +49,7 @@ if __name__ == '__main__':
         'False'
         ]
     
-    result_path = 'results_mlp_configs'
+    result_path = 'results_mlp'
     
     for version in lid_ds_versions:
         if version=="LID-DS-2019":
@@ -97,7 +97,7 @@ if __name__ == '__main__':
                                         if freeze == 'True':
                                             continue # Ergibt anders keinen Sinn bei neuem Schwellenweert.
                                     
-                                    command = f'sbatch --job-name=mlp{job_counter:03} evaluation_mlp.job {version} {scenario} {algorithm} {config} {result_path} {learning_rate} {back_dataset}'
+                                    command = f'sbatch --job-name=mlp{job_counter:03} evaluation_mlp.job {version} {scenario} {algorithm} {config} {result_path} {learning_rate} {back_dataset} {freeze}'
                                     os.system(command)
 
                                     job_counter += 1

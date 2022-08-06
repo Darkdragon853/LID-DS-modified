@@ -70,7 +70,8 @@ class W2VEmbedding(BuildingBlock):
                              vector_size=self._vector_size,
                              epochs=self._epochs,
                              window=self._window_size,
-                             min_count=1)
+                             min_count=1,
+                             workers=1)
             self.w2vmodel = model
 
     def _calculate(self, syscall: Syscall):
