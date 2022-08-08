@@ -5,7 +5,8 @@
 #SBATCH --partition=paula-gpu
 #SBATCH --mem-per-cpu=6G
 #SBATCH --time=48:00:00
+#SBATCH --export=ALL
 
-PYTHONHASHSEED = 0
+export PYTHONHASHSEED=0
 module load Python/3.9.6-GCCcore-11.2.0
 srun python algorithms/evaluation_main.py -v $1 -s $2 -a $3 -c $4 -r $5 -l $6 -t $7 -f $8 
