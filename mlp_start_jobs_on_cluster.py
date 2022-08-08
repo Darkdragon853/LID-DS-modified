@@ -95,7 +95,7 @@ if __name__ == '__main__':
                                         if learning_rate != 0.003: # Ergibt anders keinen Sinn bei neuem Schwellenwert
                                             continue
                                         if freeze == 'True':
-                                            continue # Ergibt anders keinen Sinn bei neuem Schwellenweert.
+                                            continue # Ergibt keinen Sinn bei neuem Schwellenweert.
                                     
                                     command = f'sbatch --job-name=mlp{job_counter:03} evaluation_mlp.job {version} {scenario} {algorithm} {config} {result_path} {learning_rate} {back_dataset} {freeze}'
                                     os.system(command)
