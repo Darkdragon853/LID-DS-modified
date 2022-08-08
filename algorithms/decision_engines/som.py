@@ -13,7 +13,7 @@ from pprint import pprint
 
 class Som(BuildingBlock):
     def __init__(self, input_vector: BuildingBlock, epochs: int = 50, sigma: float = 1.0, learning_rate: float = 0.5,
-                 max_size: int = None, size=None):
+                 max_size: int = None, size=None, use_alternate_size_calculation = False):
         """
             Anomaly Detection Engine based on Teuvo Kohonen's Self-Organizing-Map (SOM)
 
@@ -44,6 +44,7 @@ class Som(BuildingBlock):
         self._size = size
         self.custom_fields = {}
         self._myCounter = 0
+        self._use_alternate_size_calculation = use_alternate_size_calculation
 
     def depends_on(self):
         return self._dependency_list
@@ -58,11 +59,14 @@ class Som(BuildingBlock):
             if a fixed size is given on initialization of the som the estimation will be skipped
         """
         if self._size is None:
-            som_size = round(math.sqrt(
+            if self._use_alternate_size_calculation:
+                som_size = math.ceil(math.sqrt(5*math.sqrt(len(self._buffer))))
+            else:
+                som_size = round(math.sqrt(
                 len(self._buffer)
-            ), 0)
+                ), 0)
 
-            som_size += 1
+                som_size += 1
             if self._max_size is not None and som_size > self._max_size:
                 return self._max_size
             else:
@@ -75,6 +79,10 @@ class Som(BuildingBlock):
             creates distinct input data buffer used for training
         """
         input_vector = self._input_vector.get_result(syscall)
+        
+        # if input_vector is not None and self._myCounter <= 10:
+            # self._myCounter += 1
+            # pprint(f'Counter: {self._myCounter}, vector: {input_vector}, syscall: {syscall.name()}, line id: {syscall.line_id}')
         if input_vector is not None:
             if input_vector not in self._buffer:
                 self._buffer.add(input_vector)
@@ -84,19 +92,28 @@ class Som(BuildingBlock):
             finalizes the training step for the som
         """
         print(f"som.train_set: {len(self._buffer)} ".rjust(27))
-        # print(self._buffer)
         som_size = self._get_or_estimate_som_size()
         # vector_size = len(self._buffer[0])
         vector_size = len(next(iter(self._buffer)))
 
         self._som = MiniSom(som_size, som_size, vector_size,
-                            random_seed=1,
                             sigma=self._sigma,
-                            learning_rate=self._learning_rate)
-
-        for epoch in tqdm(range(self._epochs), desc='Training SOM'.rjust(27)):
+                            learning_rate=self._learning_rate,
+                            random_seed=0)
+        # pprint(self._som._weights)
+ 
+        for epoch in tqdm(range(self._epochs), desc='Fitting SOM'.rjust(27)):
+            # small_counter = 0
+            
             for vector in self._buffer:
+                # small_counter += 1
+                # if small_counter >= 5:
+                    # break
+                # pprint(f'Number {small_counter}, current vector: {vector} and that was the end.')
                 self._som.update(vector, self._som.winner(vector), epoch, self._epochs)
+                # pprint(self._som.winner(vector))
+            # break
+        # pprint(self._som._weights)
 
     def _calculate(self, syscall: Syscall):
         """
