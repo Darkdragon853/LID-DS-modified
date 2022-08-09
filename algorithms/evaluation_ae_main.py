@@ -14,6 +14,7 @@ from time import time
 
 from algorithms.decision_engines.mlp import MLP
 from algorithms.decision_engines.stide import Stide
+from algorithms.decision_engines.ae import AE
 from algorithms.ids import IDS
 from algorithms.features.impl.select import Select
 from algorithms.features.impl.int_embedding import IntEmbedding
@@ -224,283 +225,241 @@ if __name__ == '__main__':
     dataloader = dataloader_factory(scenario_path,direction=Direction.BOTH) # Results differ, currently BOTH was the best performing
     
     #--------------------
-        
-    # Configuration of chosen decision engines. Choosing best configs in MLPs for equalness. Grimmers Paper.
-    ####################
     
-    # # STIDE
-    # if args.algorithm == 'stide':
+    settings_dict = {} # Enthält die Konfig-Infos
+    
+    if args.config == '0':
+        
+        ##################################### Config 0 ######################################### 
+        
+        # Settings
+        ngram_length = 5
+        w2v_vector_size = 5
+        w2v_window_size = 10
+        w2v_epochs = 1000
+        thread_aware = True
+        hidden_size = 64
+        batch_size = 256
+ 
+        learning_rate = 0.003
+        window_length = 10
+        
+        settings_dict['ngram_length'] = ngram_length
+        settings_dict['w2v_vector_size'] = w2v_vector_size
+        settings_dict['w2v_window_size'] = w2v_window_size
+        settings_dict['thread_aware'] = thread_aware
+        settings_dict['hidden_size'] = hidden_size
+        settings_dict['batch_size'] = batch_size
+        settings_dict['w2v_epochs'] = w2v_epochs
+        settings_dict['learning_rate'] = learning_rate
+        settings_dict['window_length'] = window_length
+        
+        # Building Blocks
+        inte = IntEmbedding()
+        w2v = W2VEmbedding(word=inte,
+                       vector_size=w2v_vector_size,
+                       window_size=w2v_window_size,
+                       epochs=w2v_epochs,
+                       thread_aware=thread_aware)
+        
+        ngram = Ngram([w2v], thread_aware, ngram_length) 
+        ae = AE(input_vector=ngram,
+                hidden_size=hidden_size,
+                batch_size=batch_size)
+        
+        decision_engine = StreamSum(ae, thread_aware, window_length)
+    
+    ##################################### Config 1 ######################################### 
+    # elif args.config == '1':
+        
+    #     # Settings
+    #     ngram_length = 3
+    #     w2v_vector_size = 8
+    #     w2v_window_size = 15
     #     thread_aware = True
-    #     window_length = 1000
+    #     hidden_size = 32
+    #     hidden_layers = 4
+    #     batch_size = 256
+    #     w2v_epochs = 1000
+    #     learning_rate = 0.003
+    #     window_length = 100       
+        
+        
+    #     settings_dict['ngram_length'] = ngram_length
+    #     settings_dict['w2v_vector_size'] = w2v_vector_size
+    #     settings_dict['w2v_window_size'] = w2v_window_size
+    #     settings_dict['thread_aware'] = thread_aware
+    #     settings_dict['hidden_size'] = hidden_size
+    #     settings_dict['hidden_layers'] = hidden_layers
+    #     settings_dict['batch_size'] = batch_size
+    #     settings_dict['w2v_epochs'] = w2v_epochs
+    #     settings_dict['learning_rate'] = learning_rate
+    #     settings_dict['window_length'] = window_length
+        
+        
+    #     # Building Blocks
+    #     inte = IntEmbedding()
+    #     w2v = W2VEmbedding(word=inte,
+    #                    vector_size=w2v_vector_size,
+    #                    window_size=w2v_window_size,
+    #                    epochs=w2v_epochs,
+    #                    thread_aware=thread_aware)
+        
+    #     ohe = OneHotEncoding(inte)
+    #     ngram = Ngram([w2v], thread_aware, ngram_length + 1) 
+    #     select = Select(ngram, start = 0, end = (w2v_vector_size * ngram_length)) 
+
+    #     mlp = MLP(select,
+    #         ohe,
+    #         hidden_size,
+    #         hidden_layers,
+    #         batch_size,
+    #         learning_rate,
+    #         # independent_validation
+    #     )
+        
+    #     decision_engine = StreamSum(mlp, thread_aware, window_length)
+    
+    # ##################################### Config 2 ######################################### 
+    # elif args.config == '2':
+        
+    #     # Settings
+    #     ngram_length = 7
+    #     thread_aware = True
+    #     hidden_size = 64
+    #     hidden_layers = 3
+    #     batch_size = 256
+    #     learning_rate = 0.003
+    #     window_length = 5
+        
+    #     settings_dict['ngram_length'] = ngram_length
+    #     settings_dict['thread_aware'] = thread_aware
+    #     settings_dict['hidden_size'] = hidden_size
+    #     settings_dict['hidden_layers'] = hidden_layers
+    #     settings_dict['batch_size'] = batch_size
+    #     settings_dict['learning_rate'] = learning_rate
+    #     settings_dict['window_length'] = window_length
+        
+    #     # Calculate Embedding_size
+    #     temp_i = IntEmbedding()
+    #     temp_ohe = OneHotEncoding(temp_i)
+    #     mini_ids = IDS(dataloader, temp_ohe, False, False)
+    #     ohe_embedding_size = temp_ohe.get_embedding_size()
+        
+    #     # Building Blocks
+    #     inte = IntEmbedding()
+        
+    #     ohe = OneHotEncoding(inte)
+        
+    #     ngram_ohe = Ngram([ohe], thread_aware, ngram_length + 1)
+        
+    #     select_ohe = Select(ngram_ohe, 0, (ngram_length * ohe_embedding_size)) 
+        
+    #     mlp = MLP(select_ohe,
+    #         ohe,
+    #         hidden_size,
+    #         hidden_layers,
+    #         batch_size,
+    #         learning_rate,
+    #         # independent_validation
+    #     )   
+
+    #     decision_engine = StreamSum(mlp, thread_aware, window_length)
+        
+    # elif args.config == '3': 
+    #     # Settings
     #     ngram_length = 5
-    #     embedding_size = 10
+    #     thread_aware = True
+    #     hidden_size = 64
+    #     hidden_layers = 4
+    #     batch_size = 512
+    #     learning_rate = 0.003
+    #     window_length = 20
         
-    #     intEmbedding = IntEmbedding()
-    #     ngram = Ngram([intEmbedding], thread_aware, ngram_length)
-    #     decision_engine = Stide(ngram, window_length)
-
-    # MLP 
-    if args.algorithm == 'mlp':
-        # independent_validation = False
-        # if args.use_independent_validation is not None and args.use_independent_validation == 'True':
-        #     independent_validation = True
-        # else: 
-        #     independent_validation = False
+    #     settings_dict['ngram_length'] = ngram_length
+    #     settings_dict['thread_aware'] = thread_aware
+    #     settings_dict['hidden_size'] = hidden_size
+    #     settings_dict['hidden_layers'] = hidden_layers
+    #     settings_dict['batch_size'] = batch_size
+    #     settings_dict['learning_rate'] = learning_rate
+    #     settings_dict['window_length'] = window_length
         
-        settings_dict = {} # Enthält die Konfig-Infos
-        if args.config == '0':
-            
-            ##################################### Config 0 ######################################### 
-            
-            # Settings
-            ngram_length = 5
-            w2v_vector_size = 5
-            w2v_window_size = 10
-            thread_aware = True
-            hidden_size = 64
-            hidden_layers = 3
-            batch_size = 256
-            w2v_epochs = 1000
-            learning_rate = 0.003
-            window_length = 10
-
-            settings_dict['ngram_length'] = ngram_length
-            settings_dict['w2v_vector_size'] = w2v_vector_size
-            settings_dict['w2v_window_size'] = w2v_window_size
-            settings_dict['thread_aware'] = thread_aware
-            settings_dict['hidden_size'] = hidden_size
-            settings_dict['hidden_layers'] = hidden_layers
-            settings_dict['batch_size'] = batch_size
-            settings_dict['w2v_epochs'] = w2v_epochs
-            settings_dict['learning_rate'] = learning_rate
-            settings_dict['window_length'] = window_length
-
-            # Building Blocks
-            inte = IntEmbedding()
-
-            w2v = W2VEmbedding(word=inte,
-                           vector_size=w2v_vector_size,
-                           window_size=w2v_window_size,
-                           epochs=w2v_epochs,
-                           thread_aware=thread_aware)
-            
-            ohe = OneHotEncoding(inte)
-
-            ngram = Ngram([w2v], thread_aware, ngram_length + 1) 
-
-            select = Select(ngram, start = 0, end = (w2v_vector_size * ngram_length)) 
-
-            mlp = MLP(select,
-                ohe,
-                hidden_size,
-                hidden_layers,
-                batch_size,
-                learning_rate,
-                # independent_validation
-            )
-            
-            decision_engine = StreamSum(mlp, thread_aware, window_length)
+    #     # Calculate Embedding_size
+    #     temp_i = IntEmbedding()
+    #     temp_ohe = OneHotEncoding(temp_i)
+    #     mini_ids = IDS(dataloader, temp_ohe, False, False)
+    #     ohe_embedding_size = temp_ohe.get_embedding_size()
         
-        ##################################### Config 1 ######################################### 
-        elif args.config == '1':
-            
-            # Settings
-            ngram_length = 3
-            w2v_vector_size = 8
-            w2v_window_size = 15
-            thread_aware = True
-            hidden_size = 32
-            hidden_layers = 4
-            batch_size = 256
-            w2v_epochs = 1000
-            learning_rate = 0.003
-            window_length = 100       
-            
-            
-            settings_dict['ngram_length'] = ngram_length
-            settings_dict['w2v_vector_size'] = w2v_vector_size
-            settings_dict['w2v_window_size'] = w2v_window_size
-            settings_dict['thread_aware'] = thread_aware
-            settings_dict['hidden_size'] = hidden_size
-            settings_dict['hidden_layers'] = hidden_layers
-            settings_dict['batch_size'] = batch_size
-            settings_dict['w2v_epochs'] = w2v_epochs
-            settings_dict['learning_rate'] = learning_rate
-            settings_dict['window_length'] = window_length
-            
-            
-            # Building Blocks
-
-            inte = IntEmbedding()
-
-            w2v = W2VEmbedding(word=inte,
-                           vector_size=w2v_vector_size,
-                           window_size=w2v_window_size,
-                           epochs=w2v_epochs,
-                           thread_aware=thread_aware)
-            
-            ohe = OneHotEncoding(inte)
-
-            ngram = Ngram([w2v], thread_aware, ngram_length + 1) 
-
-            select = Select(ngram, start = 0, end = (w2v_vector_size * ngram_length)) 
-
-            mlp = MLP(select,
-                ohe,
-                hidden_size,
-                hidden_layers,
-                batch_size,
-                learning_rate,
-                # independent_validation
-            )
-            
-            decision_engine = StreamSum(mlp, thread_aware, window_length)
+    #     # Building Blocks
+    #     inte = IntEmbedding()
         
-        ##################################### Config 2 ######################################### 
-        elif args.config == '2':
-            
-            # Settings
-            ngram_length = 7
-            thread_aware = True
-            hidden_size = 64
-            hidden_layers = 3
-            batch_size = 256
-            learning_rate = 0.003
-            window_length = 5
-            
-            settings_dict['ngram_length'] = ngram_length
-            settings_dict['thread_aware'] = thread_aware
-            settings_dict['hidden_size'] = hidden_size
-            settings_dict['hidden_layers'] = hidden_layers
-            settings_dict['batch_size'] = batch_size
-            settings_dict['learning_rate'] = learning_rate
-            settings_dict['window_length'] = window_length
-            
-            # Calculate Embedding_size
-            temp_i = IntEmbedding()
-            temp_ohe = OneHotEncoding(temp_i)
-            mini_ids = IDS(dataloader, temp_ohe, False, False)
-            ohe_embedding_size = temp_ohe.get_embedding_size()
-            
-            # Building Blocks
-            inte = IntEmbedding()
-            
-            ohe = OneHotEncoding(inte)
-            
-            ngram_ohe = Ngram([ohe], thread_aware, ngram_length + 1)
-            
-            select_ohe = Select(ngram_ohe, 0, (ngram_length * ohe_embedding_size)) 
-            
-            mlp = MLP(select_ohe,
-                ohe,
-                hidden_size,
-                hidden_layers,
-                batch_size,
-                learning_rate,
-                # independent_validation
-            )   
+    #     ohe = OneHotEncoding(inte)
+        
+    #     ngram_ohe = Ngram([ohe], thread_aware, ngram_length + 1)
+        
+    #     select_ohe = Select(ngram_ohe, 0, (ngram_length * ohe_embedding_size)) 
+        
+    #     mlp = MLP(select_ohe,
+    #         ohe,
+    #         hidden_size,
+    #         hidden_layers,
+    #         batch_size,
+    #         learning_rate,
+    #         # independent_validation
+    #     )   
+
+    #     decision_engine = StreamSum(mlp, thread_aware, window_length)
     
-            decision_engine = StreamSum(mlp, thread_aware, window_length)
-            
-        elif args.config == '3': 
-            # Settings
-            ngram_length = 5
-            thread_aware = True
-            hidden_size = 64
-            hidden_layers = 4
-            batch_size = 512
-            learning_rate = 0.003
-            window_length = 20
-            
-            settings_dict['ngram_length'] = ngram_length
-            settings_dict['thread_aware'] = thread_aware
-            settings_dict['hidden_size'] = hidden_size
-            settings_dict['hidden_layers'] = hidden_layers
-            settings_dict['batch_size'] = batch_size
-            settings_dict['learning_rate'] = learning_rate
-            settings_dict['window_length'] = window_length
-            
-            # Calculate Embedding_size
-            temp_i = IntEmbedding()
-            temp_ohe = OneHotEncoding(temp_i)
-            mini_ids = IDS(dataloader, temp_ohe, False, False)
-            ohe_embedding_size = temp_ohe.get_embedding_size()
-            
-            # Building Blocks
-            inte = IntEmbedding()
-            
-            ohe = OneHotEncoding(inte)
-            
-            ngram_ohe = Ngram([ohe], thread_aware, ngram_length + 1)
-            
-            select_ohe = Select(ngram_ohe, 0, (ngram_length * ohe_embedding_size)) 
-            
-            mlp = MLP(select_ohe,
-                ohe,
-                hidden_size,
-                hidden_layers,
-                batch_size,
-                learning_rate,
-                # independent_validation
-            )   
-    
-            decision_engine = StreamSum(mlp, thread_aware, window_length)
+    # elif args.config == '4':
+    #   # Settings
+    #     ngram_length = 7
+    #     w2v_vector_size = 8
+    #     w2v_window_size = 20
+    #     thread_aware = True
+    #     hidden_size = 64
+    #     hidden_layers = 2
+    #     batch_size = 256
+    #     w2v_epochs = 1000
+    #     learning_rate = 0.003
+    #     window_length = 40       
         
-        elif args.config == '4':
-          # Settings
-            ngram_length = 7
-            w2v_vector_size = 8
-            w2v_window_size = 20
-            thread_aware = True
-            hidden_size = 64
-            hidden_layers = 2
-            batch_size = 256
-            w2v_epochs = 1000
-            learning_rate = 0.003
-            window_length = 40       
-            
-            
-            settings_dict['ngram_length'] = ngram_length
-            settings_dict['w2v_vector_size'] = w2v_vector_size
-            settings_dict['w2v_window_size'] = w2v_window_size
-            settings_dict['thread_aware'] = thread_aware
-            settings_dict['hidden_size'] = hidden_size
-            settings_dict['hidden_layers'] = hidden_layers
-            settings_dict['batch_size'] = batch_size
-            settings_dict['w2v_epochs'] = w2v_epochs
-            settings_dict['learning_rate'] = learning_rate
-            settings_dict['window_length'] = window_length
-            
-            
-            # Building Blocks
-
-            inte = IntEmbedding()
-
-            w2v = W2VEmbedding(word=inte,
-                           vector_size=w2v_vector_size,
-                           window_size=w2v_window_size,
-                           epochs=w2v_epochs,
-                           thread_aware=thread_aware)
-            
-            ohe = OneHotEncoding(inte)
-
-            ngram = Ngram([w2v], thread_aware, ngram_length + 1) 
-
-            select = Select(ngram, start = 0, end = (w2v_vector_size * ngram_length)) 
-
-            mlp = MLP(select,
-                ohe,
-                hidden_size,
-                hidden_layers,
-                batch_size,
-                learning_rate,
-                # independent_validation
-            )
-            
-            decision_engine = StreamSum(mlp, thread_aware, window_length)   
-            
-        else:
-            exit('Unknown configuration of MLP. Exiting.')
+        
+    #     settings_dict['ngram_length'] = ngram_length
+    #     settings_dict['w2v_vector_size'] = w2v_vector_size
+    #     settings_dict['w2v_window_size'] = w2v_window_size
+    #     settings_dict['thread_aware'] = thread_aware
+    #     settings_dict['hidden_size'] = hidden_size
+    #     settings_dict['hidden_layers'] = hidden_layers
+    #     settings_dict['batch_size'] = batch_size
+    #     settings_dict['w2v_epochs'] = w2v_epochs
+    #     settings_dict['learning_rate'] = learning_rate
+    #     settings_dict['window_length'] = window_length
+        
+        
+    #     # Building Blocks
+    #     inte = IntEmbedding()
+    #     w2v = W2VEmbedding(word=inte,
+    #                    vector_size=w2v_vector_size,
+    #                    window_size=w2v_window_size,
+    #                    epochs=w2v_epochs,
+    #                    thread_aware=thread_aware)
+        
+    #     ohe = OneHotEncoding(inte)
+    #     ngram = Ngram([w2v], thread_aware, ngram_length + 1) 
+    #     select = Select(ngram, start = 0, end = (w2v_vector_size * ngram_length)) 
+    #     mlp = MLP(select,
+    #         ohe,
+    #         hidden_size,
+    #         hidden_layers,
+    #         batch_size,
+    #         learning_rate,
+    #         # independent_validation
+    #     )
+        
+    #     decision_engine = StreamSum(mlp, thread_aware, window_length)   
+        
+    else:
+        exit('Unknown configuration of MLP. Exiting.')
         
     
     # Stopping Randomness
@@ -601,197 +560,170 @@ if __name__ == '__main__':
 
     if args.to_dataset_playing_back == 'training':
         # Für Retraining
-        dataloader.set_retraining_data(all_recordings) # Fügt die neuen Trainingsbeispiele als zusätzliches Training ein.
+        dataloader.set_retraining_data([]) # Fügt die neuen Trainingsbeispiele als zusätzliches Training ein.
     # elif args.to_dataset_playing_back == 'validation' and independent_validation:
     elif args.to_dataset_playing_back == 'validation':
         dataloader.set_revalidation_data(all_recordings) # Fügt die neuen Trainingsbeispiele bei den Validierungsdaten ein.
 
     ### Rebuilding IDS
 
-    ##### New BBs ############
-    # STIDE
-    # if args.algorithm == 'stide':
-    #     thread_aware = True
-    #     window_length = 1000
-    #     ngram_length = 5
-    #     embedding_size = 10
-        
-    #     intEmbedding = IntEmbedding()
-    #     ngram = Ngram([intEmbedding], thread_aware, ngram_length)
-    #     decision_engine = Stide(ngram, window_length)
-
     # MLP - Rebuilding whole IDS BBs.
-    if args.algorithm == 'mlp':
         
          # Hier wird eine neue Learning-Rate festgesetzt und dann das schon bestehende MLP zusätzlich auf den zurückgespielten Beispielen trainiert!
-        if args.learning_rate != learning_rate:
-            pprint("Learning rate wasn't original learning rate. Preparing necessary steps.")
-            mlp.set_learning_rate(args.learning_rate)
-            mlp._training_set = set()
-            dataloader.overwrite_training_data_with_retraining()
-            decision_engine = StreamSum(mlp, thread_aware, window_length)      
-    
-            settings_dict['new_learning_rate'] = args.learning_rate
-    
-        else:
+    if args.learning_rate != learning_rate:
+        pprint("Learning rate wasn't original learning rate. Preparing necessary steps.")
+        # mlp.set_learning_rate(args.learning_rate)
+        # mlp._training_set = set()
+        dataloader.overwrite_training_data_with_retraining()
+        decision_engine = StreamSum(ae, thread_aware, window_length)      
+
+        settings_dict['new_learning_rate'] = args.learning_rate
+        
+    else:
+        settings_dict = {} # Enthält die Konfig-Infos
+        if args.config == '0':
+                
+            ##################################### Config 0 ######################################### 
             
-            settings_dict = {} # Enthält die Konfig-Infos
-            if args.config == '0':
-                
-                ##################################### Config 0 ######################################### 
-                
-                # Settings
-                ngram_length = 5
-                w2v_vector_size = 5
-                w2v_window_size = 10
-                thread_aware = True
-                hidden_size = 64
-                hidden_layers = 3
-                batch_size = 256
-                w2v_epochs = 1000
-                learning_rate = 0.003
-                window_length = 10
-
-                settings_dict['ngram_length'] = ngram_length
-                settings_dict['w2v_vector_size'] = w2v_vector_size
-                settings_dict['w2v_window_size'] = w2v_window_size
-                settings_dict['thread_aware'] = thread_aware
-                settings_dict['hidden_size'] = hidden_size
-                settings_dict['hidden_layers'] = hidden_layers
-                settings_dict['batch_size'] = batch_size
-                settings_dict['w2v_epochs'] = w2v_epochs
-                settings_dict['learning_rate'] = learning_rate
-                settings_dict['window_length'] = window_length
-
-                # Building Blocks
-                inte = IntEmbedding()
-
-                w2v = W2VEmbedding(word=inte,
-                            vector_size=w2v_vector_size,
-                            window_size=w2v_window_size,
-                            epochs=w2v_epochs,
-                            thread_aware=thread_aware)
-                
-                ohe = OneHotEncoding(inte)
-
-                ngram = Ngram([w2v], thread_aware, ngram_length + 1) 
-
-                select = Select(ngram, start = 0, end = (w2v_vector_size * ngram_length)) 
-
-                mlp = MLP(select,
-                    ohe,
-                    hidden_size,
-                    hidden_layers,
-                    batch_size,
-                    learning_rate,
-                    # independent_validation
-                )
-                
-                decision_engine = StreamSum(mlp, thread_aware, window_length)
+            # Settings
+            ngram_length = 5
+            w2v_vector_size = 5
+            w2v_window_size = 10
+            thread_aware = True
+            hidden_size = 64
+            hidden_layers = 3
+            batch_size = 256
+            w2v_epochs = 1000
+            learning_rate = 0.003
+            window_length = 10
+            settings_dict['ngram_length'] = ngram_length
+            settings_dict['w2v_vector_size'] = w2v_vector_size
+            settings_dict['w2v_window_size'] = w2v_window_size
+            settings_dict['thread_aware'] = thread_aware
+            settings_dict['hidden_size'] = hidden_size
+            settings_dict['hidden_layers'] = hidden_layers
+            settings_dict['batch_size'] = batch_size
+            settings_dict['w2v_epochs'] = w2v_epochs
+            settings_dict['learning_rate'] = learning_rate
+            settings_dict['window_length'] = window_length
+            # Building Blocks
+            inte = IntEmbedding()
+            w2v = W2VEmbedding(word=inte,
+                        vector_size=w2v_vector_size,
+                        window_size=w2v_window_size,
+                        epochs=w2v_epochs,
+                        thread_aware=thread_aware)
+            
+            ngram = Ngram([w2v], thread_aware, ngram_length) 
+            ae = AE(input_vector=ngram,
+                hidden_size=hidden_size,
+                batch_size=batch_size)
+            
+            decision_engine = StreamSum(ae, thread_aware, window_length)
             
             ##################################### Config 1 ######################################### 
-            elif args.config == '1':
+            # elif args.config == '1':
                 
-                # Settings
-                ngram_length = 3
-                w2v_vector_size = 8
-                w2v_window_size = 15
-                thread_aware = True
-                hidden_size = 32
-                hidden_layers = 4
-                batch_size = 256
-                w2v_epochs = 1000
-                learning_rate = 0.003
-                window_length = 100       
-                
-                
-                settings_dict['ngram_length'] = ngram_length
-                settings_dict['w2v_vector_size'] = w2v_vector_size
-                settings_dict['w2v_window_size'] = w2v_window_size
-                settings_dict['thread_aware'] = thread_aware
-                settings_dict['hidden_size'] = hidden_size
-                settings_dict['hidden_layers'] = hidden_layers
-                settings_dict['batch_size'] = batch_size
-                settings_dict['w2v_epochs'] = w2v_epochs
-                settings_dict['learning_rate'] = learning_rate
-                settings_dict['window_length'] = window_length
+            #     # Settings
+            #     ngram_length = 3
+            #     w2v_vector_size = 8
+            #     w2v_window_size = 15
+            #     thread_aware = True
+            #     hidden_size = 32
+            #     hidden_layers = 4
+            #     batch_size = 256
+            #     w2v_epochs = 1000
+            #     learning_rate = 0.003
+            #     window_length = 100       
                 
                 
-                # Building Blocks
+            #     settings_dict['ngram_length'] = ngram_length
+            #     settings_dict['w2v_vector_size'] = w2v_vector_size
+            #     settings_dict['w2v_window_size'] = w2v_window_size
+            #     settings_dict['thread_aware'] = thread_aware
+            #     settings_dict['hidden_size'] = hidden_size
+            #     settings_dict['hidden_layers'] = hidden_layers
+            #     settings_dict['batch_size'] = batch_size
+            #     settings_dict['w2v_epochs'] = w2v_epochs
+            #     settings_dict['learning_rate'] = learning_rate
+            #     settings_dict['window_length'] = window_length
+                
+                
+            #     # Building Blocks
 
-                inte = IntEmbedding()
+            #     inte = IntEmbedding()
 
-                w2v = W2VEmbedding(word=inte,
-                            vector_size=w2v_vector_size,
-                            window_size=w2v_window_size,
-                            epochs=w2v_epochs,
-                            thread_aware=thread_aware)
+            #     w2v = W2VEmbedding(word=inte,
+            #                 vector_size=w2v_vector_size,
+            #                 window_size=w2v_window_size,
+            #                 epochs=w2v_epochs,
+            #                 thread_aware=thread_aware)
                 
-                ohe = OneHotEncoding(inte)
+            #     ohe = OneHotEncoding(inte)
 
-                ngram = Ngram([w2v], thread_aware, ngram_length + 1) 
+            #     ngram = Ngram([w2v], thread_aware, ngram_length + 1) 
 
-                select = Select(ngram, start = 0, end = (w2v_vector_size * ngram_length)) 
+            #     select = Select(ngram, start = 0, end = (w2v_vector_size * ngram_length)) 
 
-                mlp = MLP(select,
-                    ohe,
-                    hidden_size,
-                    hidden_layers,
-                    batch_size,
-                    learning_rate,
-                    # independent_validation
-                )
+            #     mlp = MLP(select,
+            #         ohe,
+            #         hidden_size,
+            #         hidden_layers,
+            #         batch_size,
+            #         learning_rate,
+            #         # independent_validation
+            #     )
                 
-                decision_engine = StreamSum(mlp, thread_aware, window_length)
+            #     decision_engine = StreamSum(mlp, thread_aware, window_length)
             
-            ##################################### Config 2 ######################################### 
-            elif args.config == '2':
+            # ##################################### Config 2 ######################################### 
+            # elif args.config == '2':
                 
-                # Settings
-                ngram_length = 7
-                thread_aware = True
-                hidden_size = 64
-                hidden_layers = 3
-                batch_size = 256
-                learning_rate = 0.003
-                window_length = 5
+            #     # Settings
+            #     ngram_length = 7
+            #     thread_aware = True
+            #     hidden_size = 64
+            #     hidden_layers = 3
+            #     batch_size = 256
+            #     learning_rate = 0.003
+            #     window_length = 5
 
-                settings_dict['ngram_length'] = ngram_length
-                settings_dict['thread_aware'] = thread_aware
-                settings_dict['hidden_size'] = hidden_size
-                settings_dict['hidden_layers'] = hidden_layers
-                settings_dict['batch_size'] = batch_size
-                settings_dict['learning_rate'] = learning_rate
-                settings_dict['window_length'] = window_length
+            #     settings_dict['ngram_length'] = ngram_length
+            #     settings_dict['thread_aware'] = thread_aware
+            #     settings_dict['hidden_size'] = hidden_size
+            #     settings_dict['hidden_layers'] = hidden_layers
+            #     settings_dict['batch_size'] = batch_size
+            #     settings_dict['learning_rate'] = learning_rate
+            #     settings_dict['window_length'] = window_length
                 
-                # Calculate Embedding_size
-                temp_i = IntEmbedding()
-                temp_ohe = OneHotEncoding(temp_i)
-                mini_ids = IDS(dataloader, temp_ohe, False, False)
-                ohe_embedding_size = temp_ohe.get_embedding_size()
+            #     # Calculate Embedding_size
+            #     temp_i = IntEmbedding()
+            #     temp_ohe = OneHotEncoding(temp_i)
+            #     mini_ids = IDS(dataloader, temp_ohe, False, False)
+            #     ohe_embedding_size = temp_ohe.get_embedding_size()
 
-                # Building Blocks
-                inte = IntEmbedding()
+            #     # Building Blocks
+            #     inte = IntEmbedding()
                 
-                ohe = OneHotEncoding(inte)
+            #     ohe = OneHotEncoding(inte)
                 
-                ngram_ohe = Ngram([ohe], thread_aware, ngram_length + 1)
+            #     ngram_ohe = Ngram([ohe], thread_aware, ngram_length + 1)
                 
-                select_ohe = Select(ngram_ohe, 0, (ngram_length * ohe_embedding_size)) 
+            #     select_ohe = Select(ngram_ohe, 0, (ngram_length * ohe_embedding_size)) 
                 
-                mlp = MLP(select_ohe,
-                    ohe,
-                    hidden_size,
-                    hidden_layers,
-                    batch_size,
-                    learning_rate,
-                    # independent_validation
-                )   
+            #     mlp = MLP(select_ohe,
+            #         ohe,
+            #         hidden_size,
+            #         hidden_layers,
+            #         batch_size,
+            #         learning_rate,
+            #         # independent_validation
+            #     )   
         
-                decision_engine = StreamSum(mlp, thread_aware, window_length)
+            #     decision_engine = StreamSum(mlp, thread_aware, window_length)
                 
-            else:
-                exit('Unknown configuration of MLP. Exiting.')
+        else:
+            exit('Unknown configuration of MLP. Exiting.')
         
         
     # Resetting seeds
