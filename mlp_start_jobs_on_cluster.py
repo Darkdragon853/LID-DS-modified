@@ -8,8 +8,6 @@ if __name__ == '__main__':
         'LID-DS-2021'
         ]
     
-    algorithm = 'mlp'
-    
     job_counter = 1
     
     # Default is all.
@@ -97,7 +95,7 @@ if __name__ == '__main__':
                                         if freeze == 'True':
                                             continue # Ergibt keinen Sinn bei neuem Schwellenweert.
                                     
-                                    command = f'sbatch --job-name=mlp{job_counter:03} evaluation_mlp.job {version} {scenario} {algorithm} {config} {result_path} {learning_rate} {back_dataset} {freeze}'
+                                    command = f'sbatch --job-name=mlp{job_counter:03} evaluation_mlp.job {version} {scenario} {config} {result_path} {learning_rate} {back_dataset} {freeze}'
                                     os.system(command)
 
                                     job_counter += 1
