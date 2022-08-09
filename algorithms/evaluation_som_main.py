@@ -3,24 +3,16 @@ import sys
 import json
 from pprint import pprint
 from argparse import ArgumentParser
-import torch
-import numpy
-import random
 from copy import deepcopy
 from tqdm.contrib.concurrent import process_map
 from functools import reduce
 from time import time
 
-from algorithms.decision_engines.mlp import MLP
 from algorithms.decision_engines.som import Som
-from algorithms.decision_engines.stide import Stide
 from algorithms.ids import IDS
-from algorithms.features.impl.ngram_minus_one import NgramMinusOne
-from algorithms.features.impl.select import Select
 from algorithms.features.impl.int_embedding import IntEmbedding
 from algorithms.features.impl.ngram import Ngram
 from algorithms.features.impl.ngram import Ngram
-from algorithms.features.impl.one_hot_encoding import OneHotEncoding
 from algorithms.features.impl.stream_sum import StreamSum
 from algorithms.features.impl.syscall_name import SyscallName
 from algorithms.features.impl.w2v_embedding import W2VEmbedding
@@ -29,6 +21,10 @@ from algorithms.performance_measurement import Performance
 
 from dataloader.dataloader_factory import dataloader_factory
 from dataloader.direction import Direction
+
+# CONSTANTS
+LEARNING_RATE_CONSTANT = 0.5
+
 
 class FalseAlertContainer:
     def __init__(self, alarm, alarm_recording_list, window_length, ngram_length) -> None:
@@ -170,7 +166,7 @@ def parse_cli_arguments():
     parser.add_argument('--results', '-r', default='results', help='Path for the results of the evaluation')
     parser.add_argument('--base-path', '-b', default='/work/user/lz603fxao/Material', help='Base path of the LID-DS')
     parser.add_argument('--config', '-c', choices=['0', '1', '2'], default='0', help='Configuration of the MLP which will be used in this evaluation')
-    parser.add_argument('--learning-rate', '-l', default=0.003, type=float, choices=numpy.arange(0.003, 0.010, 0.001), help='Learning rate of the mlp algorithm of the new IDS')
+    parser.add_argument('--learning-rate', '-l', default=0.5, type=float, choices=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9], help='Learning rate of the mlp algorithm of the new IDS')
     parser.add_argument('--to-dataset-playing-back', '-t', default = 'training', choices=['training', 'validation'], help='Decides in which dataset the false-positives will be played back.')
     parser.add_argument('--freeze-on-retraining', '-f', default='False', choices=['True', 'False'], help='After the retraining of the IDS, will you freeze the original threshold or calculate a new one?')
     
@@ -186,12 +182,21 @@ if __name__ == '__main__':
     if args.version == 'LID-DS-2019':
         if args.scenario in ['CWE-89-SQL-injection', 'CVE-2020-23839', 'CVE-2020-9484', 'CVE-2020-13942' , 'Juice-Shop' , 'CVE-2017-12635_6']:
             sys.exit('This combination of LID-DS Version and Scenario aren\'t available.')
+            
+    # Check ob ins Valid-Set gespielt wird, dabei aber Freeze Threshold verlangt wird oder eine andere learning rate.
+    if args.to_dataset_playing_back == 'validation':
+        if args.freeze_on_retraining == 'True':
+            sys.exit('This combination can\'t be played since we want to play back the examples in the validation set. Therefore we MUST NOT freeze the threshold.')
+        elif args.learning_rate != LEARNING_RATE_CONSTANT:
+            sys.exit(f'Can\'t change the learning rate when we play back in the validation set. This should only influence the threshold. Default learning rate is {LEARNING_RATE_CONSTANT}.')
+    
+            
      
     pprint("Performing Host-based Intrusion Detection with SOM:")
-    pprint(f"Version: {args.version}") 
+    pprint(f"Version: {args.version}")
     pprint(f"Scenario: {args.scenario}")
     pprint(f"Configuration: {args.config}")
-    pprint(f"Learning-Rate of new IDS: {args.learning_rate}") #TODO Noch nicht implementiert.
+    pprint(f"Learning-Rate of new IDS: {args.learning_rate}") 
     pprint(f"Number of maximal played back false alarms: {args.play_back_count_alarms}")
     pprint(f"Playing back into {args.to_dataset_playing_back} datatset.")
     pprint(f"Treshold freezing on seconds IDS: {args.freeze_on_retraining}")
@@ -375,37 +380,49 @@ if __name__ == '__main__':
     else:
         sys.exit('Unknown configuration. Abborting.')
     
-    # Restliche Parameter 
-    w2v_window_size = 10
-    w2v_epochs = 1000
-    window_length = 10 # Wahrscheinlich fällt das raus
     
-    settings_dict = {}
-    settings_dict['ngram_length'] = ngram_length
-    settings_dict['w2v_vector_size'] = w2v_vector_size
-    settings_dict['w2v_window_size'] = w2v_window_size
-    settings_dict['w2v_epochs'] = w2v_epochs
-    settings_dict['som_epochs'] = som_epochs
-    settings_dict['thread_aware'] = thread_aware
+    # Care for new learning rate
     
-    # Building Blocks 
-    syscall = SyscallName()
-    intEmbedding = IntEmbedding()
-    w2v = W2VEmbedding(word=intEmbedding,
-                       vector_size = w2v_vector_size,
-                       window_size = w2v_window_size,
-                       epochs = w2v_epochs,
-                       thread_aware = thread_aware
-                       )
     
-    ngram = Ngram([w2v], thread_aware, ngram_length)
-    som = Som(input_vector = ngram,
-              epochs = som_epochs
-              )
-    stream = StreamSum(som, thread_aware, window_length)
+    if args.learning_rate != LEARNING_RATE_CONSTANT:
+        pprint("Learning rate wasn't original learning rate. Preparing necessary steps.")
+        som._buffer = set()
+        som.set_learning_rate(args.learning_rate)
+        dataloader.overwrite_training_data_with_retraining()
+        decision_engine = som
+    else:
     
-    # decision_engine = stream 
-    decision_engine = som  
+        # Restliche Parameter 
+        w2v_window_size = 10
+        w2v_epochs = 1000
+        window_length = 10 # Wahrscheinlich fällt das raus
+
+        settings_dict = {}
+        settings_dict['ngram_length'] = ngram_length
+        settings_dict['w2v_vector_size'] = w2v_vector_size
+        settings_dict['w2v_window_size'] = w2v_window_size
+        settings_dict['w2v_epochs'] = w2v_epochs
+        settings_dict['som_epochs'] = som_epochs
+        settings_dict['thread_aware'] = thread_aware
+
+        # Building Blocks 
+        syscall = SyscallName()
+        intEmbedding = IntEmbedding()
+        w2v = W2VEmbedding(word=intEmbedding,
+                           vector_size = w2v_vector_size,
+                           window_size = w2v_window_size,
+                           epochs = w2v_epochs,
+                           thread_aware = thread_aware
+                           )
+
+        ngram = Ngram([w2v], thread_aware, ngram_length)
+        som = Som(input_vector = ngram,
+                  epochs = som_epochs
+                  )
+        stream = StreamSum(som, thread_aware, window_length)
+
+        # decision_engine = stream 
+        decision_engine = som  
         
     ######## New IDS ########################
     ids_retrained = IDS(data_loader=dataloader,

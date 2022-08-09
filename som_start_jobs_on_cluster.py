@@ -21,6 +21,12 @@ if __name__ == '__main__':
         '1',
         '2',
         ]
+    
+    learning_rates = [
+        0.3,
+        0.5,
+        0.7
+    ]
  
     back_to_dataset = [
         'training',
@@ -68,16 +74,20 @@ if __name__ == '__main__':
            ]    
            
         for config in som_configs:   
-            for play_back_count in number_of_play_back_alarms: # 4
-                for back_dataset in back_to_dataset: # 2
-                    for freeze in freezing: # 2
-                        for scenario in scenario_names: # 25
-                            # Überspringe sinnlose kombinationen
-                            if back_dataset == 'validation' and freeze == 'True':
-                                continue
-                            
-                            command = f'sbatch --job-name=som{job_counter:03} evaluation_som.job {version} {scenario} {play_back_count} {result_path} {back_dataset} {freeze}'
+            for learning_rate in learning_rates:
+                for play_back_count in number_of_play_back_alarms: 
+                    for back_dataset in back_to_dataset: 
+                        for freeze in freezing: 
+                            for scenario in scenario_names: 
+                                # Überspringe sinnlose kombinationen
+                                if back_dataset == 'validation': 
+                                    if learning_rate != 0.5: # Ergibt anders keinen Sinn bei neuem Schwellenwert
+                                        continue
+                                    if freeze == 'True':
+                                        continue # Ergibt keinen Sinn bei neuem Schwellenweert.
+                                
+                                command = f'sbatch --job-name=som{job_counter:03} evaluation_som.job {version} {scenario} {config} {play_back_count} {learning_rate} {result_path} {back_dataset} {freeze}'
 
-                            os.system(command)
-                            job_counter += 1
+                                os.system(command)
+                                job_counter += 1
     

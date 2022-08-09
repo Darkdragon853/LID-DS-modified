@@ -79,10 +79,6 @@ class Som(BuildingBlock):
             creates distinct input data buffer used for training
         """
         input_vector = self._input_vector.get_result(syscall)
-        
-        # if input_vector is not None and self._myCounter <= 10:
-            # self._myCounter += 1
-            # pprint(f'Counter: {self._myCounter}, vector: {input_vector}, syscall: {syscall.name()}, line id: {syscall.line_id}')
         if input_vector is not None:
             if input_vector not in self._buffer:
                 self._buffer.add(input_vector)
@@ -92,15 +88,14 @@ class Som(BuildingBlock):
             finalizes the training step for the som
         """
         print(f"som.train_set: {len(self._buffer)} ".rjust(27))
-        som_size = self._get_or_estimate_som_size()
-        # vector_size = len(self._buffer[0])
-        vector_size = len(next(iter(self._buffer)))
+        if self._som is None:
+            som_size = self._get_or_estimate_som_size()
+            vector_size = len(next(iter(self._buffer)))
 
-        self._som = MiniSom(som_size, som_size, vector_size,
-                            sigma=self._sigma,
-                            learning_rate=self._learning_rate,
-                            random_seed=0)
-        # pprint(self._som._weights)
+            self._som = MiniSom(som_size, som_size, vector_size,
+                                sigma=self._sigma,
+                                learning_rate=self._learning_rate,
+                                random_seed=0)
  
         for epoch in tqdm(range(self._epochs), desc='Fitting SOM'.rjust(27)):
             # small_counter = 0
@@ -172,3 +167,7 @@ class Som(BuildingBlock):
         """
         self.custom_fields['training_quantization_error'] = self._som.quantization_error(list(self._buffer))
         self.custom_fields['training_topographic_error'] = self._som.topographic_error(list(self._buffer))
+        
+    def set_learning_rate(self, learning_rate):
+        self._som._learning_rate = learning_rate
+        self._learning_rate = learning_rate

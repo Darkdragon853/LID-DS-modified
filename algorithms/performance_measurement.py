@@ -159,7 +159,7 @@ class Performance:
 
 
     def __repr__(self) -> str:
-        return f"Performance-Instance: Alarm_Count: {self._alarm_count}, Exploit_count: {self._exploit_count}, FPs: {self._fp}, TPs: {self._tp}, FNs: {self._fn}, TNs: {self._tn}, max_FP_Anomaly: {self.max_anomaly_score_fp}, min_TP_Anomaly: {self.min_anomaly_score_tp}"
+        return f"Performance-Instance: Alarm_Count: {self._alarm_count}, Exploit_count: {self._exploit_count}, FPs: {self._fp}, TPs: {self._tp}, FNs: {self._fn}, TNs: {self._tn}, max_FP_Anomaly: {self.max_anomaly_score_fp}, min_TP_Anomaly: {self.min_anomaly_score_tp}, cfps: {self._cfp_count_exploits},{self._cfp_count_normal}"
 
     def _cfp_start_exploits(self):
         """
