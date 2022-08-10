@@ -1,9 +1,11 @@
 from gensim.models import KeyedVectors, Word2Vec
 from algorithms.building_block import BuildingBlock
+from algorithms.features.impl.int_embedding import IntEmbedding
 from algorithms.features.impl.ngram import Ngram
 from algorithms.features.impl.syscall_name import SyscallName
 from dataloader.syscall import Syscall
-
+from pprint import pprint
+import os
 
 class W2VEmbedding(BuildingBlock):
     """
@@ -24,7 +26,9 @@ class W2VEmbedding(BuildingBlock):
                  epochs: int,
                  distinct: bool = True,
                  thread_aware=True,
-                 unknown_input_value: float = 0.0):
+                 unknown_input_value: float = 0.0,
+                 lid_ds_version = None,
+                 lid_ds_scenario = None):
         super().__init__()
         self._vector_size = vector_size
         self._epochs = epochs
@@ -41,6 +45,13 @@ class W2VEmbedding(BuildingBlock):
 
         self._unknown_input_value = unknown_input_value
         self._dependency_list = [self._ngram_bb, self._input_bb]
+        
+        self._lid_ds_version = lid_ds_version
+        self._lid_ds_scenario = lid_ds_scenario
+        self._base_model_path = 'models/'
+        
+        # Try to load the model
+        self.load_model()
 
     def depends_on(self):
         return self._dependency_list
@@ -73,6 +84,7 @@ class W2VEmbedding(BuildingBlock):
                              min_count=1,
                              workers=1)
             self.w2vmodel = model
+            self.save_model()
 
     def _calculate(self, syscall: Syscall):
         """
@@ -90,3 +102,60 @@ class W2VEmbedding(BuildingBlock):
                 return None
         except KeyError:
             return tuple([self._unknown_input_value] * self._vector_size)
+
+    def save_model(self): # Eine angepasste Exception wäre gut. TODO
+        # Verschiedene Guards die sicherstellen, dass das Modell richtig abgespeichert wird
+        if self.w2vmodel is None:
+            pprint('Couldn\'t save the model because w2vmodel is None!')
+            return
+        if self._lid_ds_version is None:
+            pprint('Couldn\'t save the model because no lid_ds_version was given!')
+            return
+        if self._lid_ds_scenario is None:
+            pprint('Couldn\'t save the model because no lid_ds_scenario was given!')
+            return
+        
+        ### Create folders if not exists ###
+        # Model
+        if not os.path.exists(self._base_model_path):
+            os.mkdir(self._base_model_path)        
+        # Version
+        if not os.path.exists(f'{self._base_model_path}/{self._lid_ds_version}'):
+            os.mkdir(f'{self._base_model_path}/{self._lid_ds_version}')  
+        # Scenario
+        if not os.path.exists(f'{self._base_model_path}/{self._lid_ds_version}/{self._lid_ds_scenario}'):
+            os.mkdir(f'{self._base_model_path}/{self._lid_ds_version}/{self._lid_ds_scenario}')  
+        
+        filename = None
+        if type(self._input_bb) == type(SyscallName()):
+           filename = 'syscall_word2vec.modell'
+        elif type(self._input_bb) == type(IntEmbedding()):
+            filename = 'intembedding_word2vec.modell'
+        else: 
+            pprint(f'Type of {type(self._input_bb)} not handled. Can\'t save this model.')
+            return
+        
+        # Save modell
+        self.w2vmodel.save(f'{self._base_model_path}/{self._lid_ds_version}/{self._lid_ds_scenario}/{filename}')
+        
+    def load_model(self):
+        # Check for type and resulting name of model file
+        filename = None
+        if type(self._input_bb) == type(SyscallName()):
+           filename = 'syscall_word2vec.modell'
+        elif type(self._input_bb) == type(IntEmbedding()):
+            filename = 'intembedding_word2vec.modell'
+        else: 
+            pprint(f'Type of {type(self._input_bb)} not handled. Can\'t load this model.')
+            return
+        
+        # Load model
+        try:
+            self.w2vmodel = Word2Vec.load(f'{self._base_model_path}/{self._lid_ds_version}/{self._lid_ds_scenario}/{filename}')
+            pprint('Found w2v model file.')
+        except AttributeError:
+            pprint('Couldn\'t load the s2v model. We have an attribute error, so maybe there is a problem with the version.')
+        except FileNotFoundError:
+            pprint('Couldn\'t find a w2v model file.')
+        except Exception:
+            pprint('Unhandled exception occured whilel loading the w2v model.')

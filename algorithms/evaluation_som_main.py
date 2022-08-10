@@ -254,7 +254,9 @@ if __name__ == '__main__':
                        vector_size = w2v_vector_size,
                        window_size = w2v_window_size,
                        epochs = w2v_epochs,
-                       thread_aware = thread_aware
+                       thread_aware = thread_aware,
+                       lid_ds_version=args.version,
+                       lid_ds_scenario=args.scenario
                        )
     
     ngram = Ngram([w2v], thread_aware, ngram_length)
@@ -412,7 +414,9 @@ if __name__ == '__main__':
                            vector_size = w2v_vector_size,
                            window_size = w2v_window_size,
                            epochs = w2v_epochs,
-                           thread_aware = thread_aware
+                           thread_aware = thread_aware,
+                           lid_ds_version=args.version,
+                           lid_ds_scenario=args.scenario
                            )
 
         ngram = Ngram([w2v], thread_aware, ngram_length)
