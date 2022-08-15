@@ -128,30 +128,30 @@ class W2VEmbedding(BuildingBlock):
         
         filename = None
         if type(self._input_bb) == type(SyscallName()):
-           filename = 'syscall_word2vec.modell'
+           filename = 'syscall'
         elif type(self._input_bb) == type(IntEmbedding()):
-            filename = 'intembedding_word2vec.modell'
+            filename = 'intembedding'
         else: 
             pprint(f'Type of {type(self._input_bb)} not handled. Can\'t save this model.')
             return
         
         # Save modell
-        self.w2vmodel.save(f'{self._base_model_path}/{self._lid_ds_version}/{self._lid_ds_scenario}/{filename}')
+        self.w2vmodel.save(f'{self._base_model_path}/{self._lid_ds_version}/{self._lid_ds_scenario}/{filename}_vs_{self._vector_size}_ws_{self._window_size}_e_{self._epochs}_word2vec.modell')
         
     def load_model(self):
         # Check for type and resulting name of model file
         filename = None
         if type(self._input_bb) == type(SyscallName()):
-           filename = 'syscall_word2vec.modell'
+           filename = 'syscall'
         elif type(self._input_bb) == type(IntEmbedding()):
-            filename = 'intembedding_word2vec.modell'
+            filename = 'intembedding'
         else: 
             pprint(f'Type of {type(self._input_bb)} not handled. Can\'t load this model.')
             return
         
         # Load model
         try:
-            self.w2vmodel = Word2Vec.load(f'{self._base_model_path}/{self._lid_ds_version}/{self._lid_ds_scenario}/{filename}')
+            self.w2vmodel = Word2Vec.load(f'{self._base_model_path}/{self._lid_ds_version}/{self._lid_ds_scenario}/{filename}_vs_{self._vector_size}_ws_{self._window_size}_e_{self._epochs}_word2vec.modell')
             pprint('Found w2v model file.')
         except AttributeError:
             pprint('Couldn\'t load the s2v model. We have an attribute error, so maybe there is a problem with the version.')
