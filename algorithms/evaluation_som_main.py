@@ -235,9 +235,9 @@ if __name__ == '__main__':
         sys.exit('Unknown configuration. Abborting.')
     
     # Restliche Parameter 
-    w2v_window_size = 10
-    w2v_epochs = 1000
-    window_length = 10 # Wahrscheinlich fällt das raus
+    w2v_window_size = ngram_length
+    w2v_epochs = 100
+    window_length = 1 
     
     settings_dict = {}
     settings_dict['ngram_length'] = ngram_length
@@ -263,9 +263,7 @@ if __name__ == '__main__':
     som = Som(input_vector = ngram,
               epochs = som_epochs
               )
-    stream = StreamSum(som, thread_aware, window_length)
     
-    # decision_engine = stream 
     decision_engine = som
 
     # IDS
@@ -395,9 +393,9 @@ if __name__ == '__main__':
     else:
     
         # Restliche Parameter 
-        w2v_window_size = 10
-        w2v_epochs = 1000
-        window_length = 10 # Wahrscheinlich fällt das raus
+        w2v_window_size = ngram_length
+        w2v_epochs = 100
+        window_length = 1
 
         settings_dict = {}
         settings_dict['ngram_length'] = ngram_length
@@ -423,9 +421,7 @@ if __name__ == '__main__':
         som = Som(input_vector = ngram,
                   epochs = som_epochs
                   )
-        stream = StreamSum(som, thread_aware, window_length)
 
-        # decision_engine = stream 
         decision_engine = som  
         
     ######## New IDS ########################
