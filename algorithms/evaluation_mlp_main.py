@@ -44,7 +44,7 @@ class FalseAlertContainer:
     
 class FalseAlertResult:
     def __init__(self, name, syscalls) -> None:
-        self.name = name # Hier was mit der Zeit machen sonst bekomme ich wieder Probleme.
+        self.name = name 
         self.syscalls = syscalls
         self.structure = {name: syscalls}
         
@@ -92,24 +92,27 @@ def calculate(struct: Container) -> Performance:
 
 
 def construct_Syscalls(container: FalseAlertContainer) -> FalseAlertResult:
+    # Nehme dir den momentanen Alarm und die Liste an Aufzeichnungen her
     alarm = container.alarm
     alarm_recording_list = container.alarm_recording_list
     
+    # Bestimme die passende Aufzeichnung zum Alarm
     faster_current_basename = os.path.basename(alarm.filepath)
     for recording in alarm_recording_list:
         if os.path.basename(recording.path) == faster_current_basename:
             current_recording = recording
     
-    
+    # Extrahiere nun alle Syscalls zwischen Ende und Anfang des False-Alarms und zusätzlich das Fenster davor
     systemcall_list = [systemcall for systemcall in current_recording.syscalls() if systemcall.line_id >= max([alarm.first_line_id - container.window_length, 0]) and systemcall.line_id <= alarm.last_line_id] 
     
     if container.thread_aware:
-            
+        # Check ob es noch Syscalls vor dem Anfang des Alarms - Fenster gibt
         backwards_counter = max([alarm.first_line_id - container.window_length -1, 0]) 
         if backwards_counter != 0:
+            # Sammle alle bisher gefundenen ThreadIDs, deren N-Gramme wir nun befüllen müssen
             thread_id_set = set([systemcall.thread_id() for systemcall in systemcall_list])
 
-
+            # Zähle die rekonstruierten Syscalls pro ThreadID
             dict = {}
             for thread in thread_id_set:
                 dict[thread] = 0
@@ -119,20 +122,21 @@ def construct_Syscalls(container: FalseAlertContainer) -> FalseAlertResult:
                 temp_list.append(x)
                 if x.line_id == alarm.last_line_id:
                     break 
-           
+           # Erschaffe eine kleinere Liste an Systemcalls vom Anfang der Datei bis zum Ende des Alarms. Drehe sie dann um.
             temp_list.reverse() 
-                
+            # Solange wir nich für jede ThreadID genau ngram_length viele Syscalls gefunden haben und noch nicht am Anfang der Datei sind
             while(not enough_calls(dict, container.ngram_length) and backwards_counter != 0):
+                # Finde den Systemcall, der die gleiche LineID wie unser BackwardsCounter hat
                 current_call = None
                 for call in temp_list:
                     if call.line_id == backwards_counter:
                         current_call = call  
                         break  
-                    
+                # Ist keine solche LineID vorhanden, dann skippe diesen Wert.
                 if current_call is None:
                     backwards_counter -=1 
                     continue
-                    
+                # Sollten noch Systemcalls für diese ThreadID fehlen, dann füge diese am Anfang der Liste hinzu
                 if current_call.thread_id() in dict.keys() and dict[current_call.thread_id()] < container.ngram_length:
                     dict[current_call.thread_id()] += 1 
                     systemcall_list.insert(0, current_call)
@@ -140,11 +144,12 @@ def construct_Syscalls(container: FalseAlertContainer) -> FalseAlertResult:
                 backwards_counter -= 1
                 
     else:
-
+        # Fülle die Liste nur mit den Calls zwischen Ende und Anfang des Alarms, plus die des Fensters und die von einer ThreadID, also ngram_length viele.
         systemcall_list = [systemcall for systemcall in current_recording.syscalls() if systemcall.line_id >= max([alarm.first_line_id - container.window_length - container.ngram_length, 0]) and systemcall.line_id <= alarm.last_line_id] # mit Fensterbetrachtung
         
-        
+    # Als ID nehmen wir das Recording und die Zeit und fügen als Wert die extrahierten Calls zu.
     result = FalseAlertResult(f"{os.path.basename(current_recording.path)}_{str(round(time()*1000))[-5:]}", systemcall_list)
+    # Wir speichern das nochmals in einem Dict um die Parallelisierung zu ermöglichen.
     result.structure[result.name] = result.syscalls
         
     return result  
@@ -588,7 +593,8 @@ if __name__ == '__main__':
         dataloader.set_retraining_data(all_recordings) # Fügt die neuen Trainingsbeispiele als zusätzliches Training ein.
     # elif args.to_dataset_playing_back == 'validation' and independent_validation:
     elif args.to_dataset_playing_back == 'validation':
-        dataloader.set_revalidation_data(all_recordings) # Fügt die neuen Trainingsbeispiele bei den Validierungsdaten ein.
+        pass
+        # dataloader.set_revalidation_data(all_recordings) # Fügt die neuen Trainingsbeispiele bei den Validierungsdaten ein. Muss hier beim MLP aber raus, da es sonst das MLP mit verändert. Mit Martin abklären.
 
     ### Rebuilding IDS
 
