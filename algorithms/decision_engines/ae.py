@@ -111,7 +111,7 @@ class AE(BuildingBlock):
         self._validation_set = set()
         self._result_dict = {}
 
-        self._early_stopping_num_epochs = 50
+        self._early_stopping_num_epochs = 5000
 
     def depends_on(self):
         return self._dependency_list
