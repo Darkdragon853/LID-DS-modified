@@ -173,10 +173,10 @@ def parse_cli_arguments():
                                                      'Juice-Shop',
                                                      'PHP_CWE-434',
                                                      'ZipSlip'], required=True, help='Which scenario of the LID-DS?')
-    parser.add_argument('--algorithm', '-a', choices=['stide',
-                                                      'mlp',
-                                                      'ae',
-                                                      'som'], required=True, help='Which algorithm shall perform the detection?')
+    # parser.add_argument('--algorithm', '-a', choices=['stide',
+    #                                                   'mlp',
+    #                                                   'ae',
+    #                                                   'som'], required=True, help='Which algorithm shall perform the detection?')
     parser.add_argument('--play_back_count_alarms', '-p' , choices=['1', '2', '3', 'all'], default='all', help='Number of False Alarms that shall be played back or all.')
     parser.add_argument('--results', '-r', default='results', help='Path for the results of the evaluation')
     parser.add_argument('--base-path', '-b', default='/work/user/lz603fxao/Material', help='Base path of the LID-DS')
@@ -207,11 +207,11 @@ if __name__ == '__main__':
         elif args.learning_rate != LEARNING_RATE_CONSTANT:
             sys.exit(f'Can\'t change the learning rate when we play back in the validation set. This should only influence the threshold. Default learning rate is {LEARNING_RATE_CONSTANT}.')
     
-     
-    pprint("Performing Host-based Intrusion Detection with:")
+    
+    pprint("Performing Host-based Intrusion Detection with AE:")
     pprint(f"Version: {args.version}") 
     pprint(f"Scenario: {args.scenario}")
-    pprint(f"Algorithm: {args.algorithm}")
+    # pprint(f"Algorithm: {args.algorithm}")
     pprint(f"Configuration: {args.config}")
     pprint(f"Learning-Rate of new IDS: {args.learning_rate}")
     # pprint(f"State of independent validation: {args.use_independent_validation}")
@@ -485,23 +485,22 @@ if __name__ == '__main__':
     results = performance.get_results()
     pprint(results)
     
+    # pprint(ae._result_dict)
     # Preparing results
-    if args.algorithm == 'stide':
-        config_name = f"algorithm_{args.algorithm}_n_{ngram_length}_w_{window_length}_t_{thread_aware}" # TODO: Kann das raus?
-    else: 
-        # config_name = f"algorithm_{args.algorithm}_c_{args.config}_i_{args.use_independent_validation}_lr_{args.learning_rate}_n_{ngram_length}_t_{thread_aware}"
-        config_name = f"algorithm_{args.algorithm}_c_{args.config}_lr_{args.learning_rate}_n_{ngram_length}_t_{thread_aware}"
+
+    # config_name = f"algorithm_ae_c_{args.config}_i_{args.use_independent_validation}_lr_{args.learning_rate}_n_{ngram_length}_t_{thread_aware}"
+    config_name = f"algorithm_ae_c_{args.config}_lr_{args.learning_rate}_n_{ngram_length}_t_{thread_aware}"
     
     
     # Enrich results with configuration
-    results['algorithm'] = args.algorithm
+    results['algorithm'] = 'ae'
     for key in settings_dict.keys():
         results[key] = settings_dict[key]
         
     results['config'] = ids.get_config() # Produces strangely formatted Config-Print
     results['scenario'] =  args.version + "/" + args.scenario
-    # result_path = f"{args.results}/results_{args.algorithm}_config_{args.config}_i_{args.use_independent_validation}_lr_{args.learning_rate}_{args.version}_{args.scenario}.json"
-    result_path = f"{args.results}/results_{args.algorithm}_config_{args.config}_lr_{args.learning_rate}_{args.version}_{args.scenario}.json"
+    # result_path = f"{args.results}/results_ae_config_{args.config}_i_{args.use_independent_validation}_lr_{args.learning_rate}_{args.version}_{args.scenario}.json"
+    result_path = f"{args.results}/results_ae_config_{args.config}_lr_{args.learning_rate}_{args.version}_{args.scenario}.json"
 
     # Saving results
     save_to_json(results, result_path) 
@@ -560,7 +559,7 @@ if __name__ == '__main__':
 
     if args.to_dataset_playing_back == 'training':
         # Für Retraining
-        dataloader.set_retraining_data([]) # Fügt die neuen Trainingsbeispiele als zusätzliches Training ein.
+        dataloader.set_retraining_data(all_recordings) # Fügt die neuen Trainingsbeispiele als zusätzliches Training ein.
     # elif args.to_dataset_playing_back == 'validation' and independent_validation:
     elif args.to_dataset_playing_back == 'validation':
         dataloader.set_revalidation_data(all_recordings) # Fügt die neuen Trainingsbeispiele bei den Validierungsdaten ein.
@@ -596,6 +595,7 @@ if __name__ == '__main__':
             w2v_epochs = 1000
             learning_rate = 0.003
             window_length = 10
+            
             settings_dict['ngram_length'] = ngram_length
             settings_dict['w2v_vector_size'] = w2v_vector_size
             settings_dict['w2v_window_size'] = w2v_window_size
@@ -606,6 +606,7 @@ if __name__ == '__main__':
             settings_dict['w2v_epochs'] = w2v_epochs
             settings_dict['learning_rate'] = learning_rate
             settings_dict['window_length'] = window_length
+            
             # Building Blocks
             inte = IntEmbedding()
             w2v = W2VEmbedding(word=inte,
@@ -764,9 +765,10 @@ if __name__ == '__main__':
     pprint(performance_new)        
     results_new = performance_new.get_results()
     pprint(results_new)
-
+    
+    # pprint(ae._result_dict)
     # Preparing second results
-    algorithm_name = f"{args.algorithm}_retrained"
+    algorithm_name = f"ae_retrained"
     # config_name = f"algorithm_{algorithm_name}_c_{args.config}_p_{args.play_back_count_alarms}_i_{args.use_independent_validation}_lr_{args.learning_rate}_n_{ngram_length}_w_{window_length}_t_{thread_aware}"
     config_name = f"algorithm_{algorithm_name}_c_{args.config}_p_{args.play_back_count_alarms}_lr_{args.learning_rate}_n_{ngram_length}_w_{window_length}_t_{thread_aware}"
 
