@@ -1,5 +1,6 @@
 import math
 from pprint import pprint
+import sys
 import torch
 
 import numpy as np
@@ -279,7 +280,11 @@ class MLP(BuildingBlock):
 
         if input_vector is not None:
             label = self.output_label.get_result(syscall)
-            label_index = label.index(1)    
+            try:
+                label_index = label.index(1)    
+            except ValueError:
+                sys.exit('Please use an OneHotEncoding as Output-Label. We can\'t handle other Encodings there right now.')
+            
             concat_input_output = input_vector + tuple([label_index])
             
             if concat_input_output in self._result_dict:
