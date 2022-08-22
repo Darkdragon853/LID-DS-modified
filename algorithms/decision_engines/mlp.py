@@ -276,25 +276,26 @@ class MLP(BuildingBlock):
             returns: anomaly score
         """
         input_vector = self.input_vector.get_result(syscall)
-        #pprint(f"Current syscall result: {input_vector}")
-        label = self.output_label.get_result(syscall)
+
         if input_vector is not None:
-            if input_vector in self._result_dict:
-                return self._result_dict[input_vector]
+            label = self.output_label.get_result(syscall)
+            label_index = label.index(1)    
+            concat_input_output = input_vector + tuple([label_index])
+            
+            if concat_input_output in self._result_dict:
+                return self._result_dict[concat_input_output]
             else:
                 in_tensor = torch.tensor(input_vector, dtype=torch.float32, device=device)
                 with torch.no_grad():
                     mlp_out = self._model(in_tensor)
-                #pprint(mlp_out)
-                #pprint(sum(mlp_out))
                 try: 
                     label_index = label.index(1)  # getting the index of the actual next datapoint - mithilfe von index sucht man den Systemcall, der mit 1 gelabelt ist. 
                     anomaly_score = 1 - mlp_out[label_index].item() # Das Ergebnis ist dann 1 - die Sicherheit des MLPs, dass es genau dieser Systemcall sein sollte.
                 except:
+                    pprint('Exception. Had to use 1 as anomaly-score.')
                     anomaly_score = 1
 
-                self._result_dict[input_vector] = anomaly_score
-                #pprint(f"Current Anomaly-Score: {anomaly_score}")
+                self._result_dict[concat_input_output] = anomaly_score
                 return anomaly_score
         else:
             return None
@@ -321,8 +322,16 @@ class MLP(BuildingBlock):
                 }
         return weight_dict
     
-    def new_recording(self):
-        self._result_dict = {}
+    def load_model(self, path: str):
+        pass
+    
+    def save_model(self):
+        if self._model is None:
+            pprint('Model isn\'t available and therefore can\'t be saved.' )
+            return
+        
+        pass
+        
 
 def seed_worker(worker_id):
     worker_seed = torch.initial_seed() % 2**32

@@ -2,7 +2,6 @@ import base64
 from datetime import datetime
 from enum import IntEnum
 from typing import Tuple
-
 from dataloader.direction import Direction
 from dataloader.syscall import Syscall
 
@@ -202,3 +201,5 @@ class Syscall2021(Syscall):
                 return param_value
         except KeyError:
             pass
+    def __repr__(self) -> str:
+        return f'Syscall2021, name: {self.name()}, timestamps: {self.timestamp_datetime()}, thread-id: {self.thread_id()}'

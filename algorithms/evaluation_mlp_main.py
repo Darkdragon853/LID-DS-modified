@@ -593,13 +593,17 @@ if __name__ == '__main__':
         dataloader.set_retraining_data(all_recordings) # Fügt die neuen Trainingsbeispiele als zusätzliches Training ein.
     # elif args.to_dataset_playing_back == 'validation' and independent_validation:
     elif args.to_dataset_playing_back == 'validation':
-        pass
-        # dataloader.set_revalidation_data(all_recordings) # Fügt die neuen Trainingsbeispiele bei den Validierungsdaten ein. Muss hier beim MLP aber raus, da es sonst das MLP mit verändert. Mit Martin abklären.
+        dataloader.set_revalidation_data(all_recordings) # Fügt die neuen Trainingsbeispiele bei den Validierungsdaten ein. 
 
     ### Rebuilding IDS
 
-        # Hier wird eine neue Learning-Rate festgesetzt und dann das schon bestehende MLP zusätzlich auf den zurückgespielten Beispielen trainiert!
-    if args.learning_rate != learning_rate:
+
+    # Beim Rückspielen in Validierung reicht es das MLP zu behalten und den Threshold dann neu zu bestimmen.
+    if args.to_dataset_playing_back == 'validation':
+        ids_retrained = ids # Damit ich das weiter unten gleich behandeln kann
+
+    # Hier wird eine neue Learning-Rate festgesetzt und dann das schon bestehende MLP zusätzlich auf den zurückgespielten Beispielen trainiert!
+    elif args.learning_rate != learning_rate:
         pprint("Learning rate wasn't original learning rate. Preparing necessary steps.")
         mlp.set_learning_rate(args.learning_rate)
         mlp._training_set = set()
@@ -608,6 +612,7 @@ if __name__ == '__main__':
 
         settings_dict['new_learning_rate'] = args.learning_rate
     
+    # Ansonsten baue das MLP komplett neu
     else:
         
         settings_dict = {} # Enthält die Konfig-Infos
@@ -872,38 +877,34 @@ if __name__ == '__main__':
         else:
             exit('Unknown configuration of MLP. Exiting.')
         
-    # Resetting seeds
-    torch.manual_seed(0)
-    random.seed(0)
-    numpy.random.seed(0)    
         
-    ######## New IDS ########################
-    ids_retrained = IDS(data_loader=dataloader,
-        resulting_building_block=decision_engine,
-        plot_switch=False,
-        create_alarms=True)
+    if args.to_dataset_playing_back == 'validation':
+        # ids_retrained.determine_threshold()
+        pprint(f'Setting new threshold to {performance.max_anomaly_score_fp}')
+        ids_retrained.threshold = performance.max_anomaly_score_fp
+        dataloader.unload_revalidation_data()
+        
+    else: 
+        # Resetting seeds
+        torch.manual_seed(0)
+        random.seed(0)
+        numpy.random.seed(0)    
 
-    # Unloading datasets and managing thresholds        
-    if args.to_dataset_playing_back == 'training':
-        # Für Retraining
-        dataloader.unload_retraining_data() # Cleaning dataloader for performance issues
+        ######## New IDS ########################
+        ids_retrained = IDS(data_loader=dataloader,
+            resulting_building_block=decision_engine,
+            plot_switch=False,
+            create_alarms=True)
+
+        # Unloading datasets and managing thresholds        
+        dataloader.unload_retraining_data() 
+        
         if args.freeze_on_retraining == 'True':
             pprint(f"Freezing Threshold on: {ids.threshold}")
             ids_retrained.threshold = ids.threshold
         else: 
             ids_retrained.determine_threshold()
         
-    # elif args.to_dataset_playing_back == 'validation' and independent_validation: # Hier wird der Schwellenwert noch neu bestimmt.
-    elif args.to_dataset_playing_back == 'validation':
-        # Entweder
-        # ids_retrained.determine_threshold()  
-        
-        # Oder aber das hier. Damit garantiere ich, dass sich nur der Schwellenwert, nicht aber das MLP ändert.
-        ids_retrained.threshold = performance.max_anomaly_score_fp
-        
-        dataloader.unload_revalidation_data()
-    else:
-        sys.exit('Unhandled combination of playing back dataset and freezing threshold. Abborting.')
 
     pprint("At evaluation:")
     performance_new = ids_retrained.detect_parallel()

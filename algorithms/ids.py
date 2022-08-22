@@ -57,8 +57,7 @@ class IDS:
                 anomaly_score = self._final_bb.get_result(syscall)
                 if anomaly_score != None:
                     if anomaly_score > max_score:
-                        max_score = deepcopy(anomaly_score)
-                        # max_score = anomaly_score
+                        max_score = anomaly_score
             self._data_preprocessor.new_recording()
             # pprint(f"Threshold after this recording: {max_score}")            
         self.threshold = max_score
