@@ -281,9 +281,9 @@ class MLP(BuildingBlock):
         if input_vector is not None:
             label = self.output_label.get_result(syscall)
             try:
-                label_index = label.index(1)    
+                label_index = label.index(1)  # Index sucht den Systemcall, der mit 1 gelabelt ist.   
             except ValueError:
-                sys.exit('Please use an OneHotEncoding as Output-Label. We can\'t handle other Encodings there right now.')
+                sys.exit(f'Unexpected ValueError in Output-Label. Please use an OHE. The label: {label}, syscall was: {syscall}. Exiting.')
             
             concat_input_output = input_vector + tuple([label_index])
             
@@ -293,13 +293,8 @@ class MLP(BuildingBlock):
                 in_tensor = torch.tensor(input_vector, dtype=torch.float32, device=device)
                 with torch.no_grad():
                     mlp_out = self._model(in_tensor)
-                try: 
-                    label_index = label.index(1)  # getting the index of the actual next datapoint - mithilfe von index sucht man den Systemcall, der mit 1 gelabelt ist. 
-                    anomaly_score = 1 - mlp_out[label_index].item() # Das Ergebnis ist dann 1 - die Sicherheit des MLPs, dass es genau dieser Systemcall sein sollte.
-                except:
-                    pprint('Exception. Had to use 1 as anomaly-score.')
-                    anomaly_score = 1
 
+                anomaly_score = 1 - mlp_out[label_index].item() # Das Ergebnis ist dann 1 - die Sicherheit des MLPs, dass es genau dieser Systemcall sein sollte.
                 self._result_dict[concat_input_output] = anomaly_score
                 return anomaly_score
         else:

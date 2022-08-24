@@ -168,3 +168,6 @@ class Syscall2019(Syscall):
             return param_value
         except KeyError:
             pass
+    
+    def __repr__(self) -> str:
+        return f'Syscall2019, name: {self._name}, timestamps: {self._timestamp_datetime}, thread-id: {self._thread_id}'
