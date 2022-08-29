@@ -167,7 +167,7 @@ def parse_cli_arguments():
     parser.add_argument('--base-path', '-b', default='/work/user/lz603fxao/Material', help='Base path of the LID-DS')
     parser.add_argument('--config', '-c', choices=['0', '1', '2'], default='0', help='Configuration of the MLP which will be used in this evaluation')
     parser.add_argument('--learning-rate', '-l', default=0.5, type=float, choices=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9], help='Learning rate of the mlp algorithm of the new IDS')
-    parser.add_argument('--to-dataset-playing-back', '-t', default = 'training', choices=['training', 'validation'], help='Decides in which dataset the false-positives will be played back.')
+    parser.add_argument('--mode', '-m', default = 'retraining', choices=['retraining', 'revalidation', 'conceptdrift'], help='Decides in which mode the playing back will work.')
     parser.add_argument('--freeze-on-retraining', '-f', default='False', choices=['True', 'False'], help='After the retraining of the IDS, will you freeze the original threshold or calculate a new one?')
     
     return parser.parse_args()
@@ -184,21 +184,24 @@ if __name__ == '__main__':
             sys.exit('This combination of LID-DS Version and Scenario aren\'t available.')
             
     # Check ob ins Valid-Set gespielt wird, dabei aber Freeze Threshold verlangt wird oder eine andere learning rate.
-    if args.to_dataset_playing_back == 'validation':
+    if args.mode == 'revalidation':
         if args.freeze_on_retraining == 'True':
             sys.exit('This combination can\'t be played since we want to play back the examples in the validation set. Therefore we MUST NOT freeze the threshold.')
         elif args.learning_rate != LEARNING_RATE_CONSTANT:
             sys.exit(f'Can\'t change the learning rate when we play back in the validation set. This should only influence the threshold. Default learning rate is {LEARNING_RATE_CONSTANT}.')
     
-            
-     
+    if args.mode == 'retraining':
+        if args.learning_rate != LEARNING_RATE_CONSTANT:
+            sys.exit(f'Can\'t change the learning rate when use retraining mode. Default learning rate is {LEARNING_RATE_CONSTANT}.')
+    
     pprint("Performing Host-based Intrusion Detection with SOM:")
     pprint(f"Version: {args.version}")
     pprint(f"Scenario: {args.scenario}")
     pprint(f"Configuration: {args.config}")
-    pprint(f"Learning-Rate of new IDS: {args.learning_rate}") 
     pprint(f"Number of maximal played back false alarms: {args.play_back_count_alarms}")
-    pprint(f"Playing back into {args.to_dataset_playing_back} datatset.")
+    pprint(f"Playing back mode is: {args.mode}")
+    if args.mode == 'conceptdrift':
+        pprint(f"Learning-Rate of the new IDS: {args.learning_rate}") 
     pprint(f"Treshold freezing on seconds IDS: {args.freeze_on_retraining}")
     pprint(f"Results path: {args.results}")
     pprint(f"Base path: {args.base_path}")
@@ -326,7 +329,7 @@ if __name__ == '__main__':
         counter += 1    
     
     pprint("Playing back false positive alarms:")
-    false_alarm_results = process_map(construct_Syscalls, containerList, chunksize = 50)
+    false_alarm_results = process_map(construct_Syscalls, containerList, chunksize = 10) 
     final_playback = reduce(FalseAlertResult.add, false_alarm_results)
     
     
@@ -347,52 +350,33 @@ if __name__ == '__main__':
     # pprint("All Artifical Recordings:")
     # pprint(all_recordings)
 
-    if args.to_dataset_playing_back == 'training':
-        # Für Retraining
+    # Wohin sollen die Daten gespielt werden?
+    if args.mode == 'retraining':
         dataloader.set_retraining_data(all_recordings) # Fügt die neuen Trainingsbeispiele als zusätzliches Training ein.
-    elif args.to_dataset_playing_back == 'validation':
-        dataloader.set_revalidation_data(all_recordings) # Fügt die neuen Trainingsbeispiele bei den Validierungsdaten ein.
-    
-    ### Rebuilding IDS
+        
+        # New configs
+        if args.config == '0':
+            ngram_length = 9
+            w2v_vector_size = 11
+            som_epochs = 100
+            thread_aware = True
 
-    ##### New BBs ############
-    if args.config == '0':
-         
-        ngram_length = 9
-        w2v_vector_size = 11
-        som_epochs = 100
-        thread_aware = True
-
-    elif args.config == '1':
-       
-        ngram_length = 9
-        w2v_vector_size = 4
-        som_epochs = 50
-        thread_aware = True
-  
-    elif args.config == '2':
-       
-        ngram_length = 5
-        w2v_vector_size = 11
-        som_epochs = 50
-        thread_aware = True
-    
-    else:
-        sys.exit('Unknown configuration. Abborting.')
-    
-    
-    # Care for new learning rate
-    
-    
-    if args.learning_rate != LEARNING_RATE_CONSTANT:
-        pprint("Learning rate wasn't original learning rate. Preparing necessary steps.")
-        som._buffer = set()
-        som.set_learning_rate(args.learning_rate)
-        dataloader.overwrite_training_data_with_retraining()
-        decision_engine = som
-    else:
-    
-        # Restliche Parameter 
+        elif args.config == '1':
+            ngram_length = 9
+            w2v_vector_size = 4
+            som_epochs = 50
+            thread_aware = True
+            
+        elif args.config == '2':
+            ngram_length = 5
+            w2v_vector_size = 11
+            som_epochs = 50
+            thread_aware = True
+        
+        else:
+            sys.exit('Unknown configuration. Abborting.')    
+        
+        # New BBs
         w2v_window_size = ngram_length
         w2v_epochs = 100
         window_length = 1
@@ -404,6 +388,7 @@ if __name__ == '__main__':
         settings_dict['w2v_epochs'] = w2v_epochs
         settings_dict['som_epochs'] = som_epochs
         settings_dict['thread_aware'] = thread_aware
+        settings_dict['mode'] = args.mode
 
         # Building Blocks 
         syscall = SyscallName()
@@ -423,33 +408,52 @@ if __name__ == '__main__':
                   )
 
         decision_engine = som  
+        # Got a new DE right here
         
-    ######## New IDS ########################
-    ids_retrained = IDS(data_loader=dataloader,
-        resulting_building_block=decision_engine,
-        plot_switch=False,
-        create_alarms=True)
+        ######## New IDS ########################
+        ids_retrained = IDS(data_loader=dataloader,
+            resulting_building_block=decision_engine,
+            plot_switch=False,
+            create_alarms=True)
         
+    elif args.mode == 'revalidation':
+        dataloader.set_revalidation_data(all_recordings) # Fügt die neuen Trainingsbeispiele bei den Validierungsdaten ein.
+        
+        # Keep the old IDS
+        ids_retrained = ids
     
+    elif args.mode == 'conceptdrift':
+        # Care for new learning rate
+        som.set_learning_rate(args.learning_rate)
+        # Overwrite training set in SOM
+        som._buffer = set()
+        dataloader.set_retraining_data(all_recordings)
+        dataloader.overwrite_training_data_with_retraining()
+        decision_engine = som     
+        
+        ######## New IDS ########################
+        ids_retrained = IDS(data_loader=dataloader,
+            resulting_building_block=decision_engine,
+            plot_switch=False,
+            create_alarms=True)
+        
+        
+
     pprint("At evaluation:")
-    # Unloading datasets and managing thresholds        
-    if args.to_dataset_playing_back == 'training':
-        # Für Retraining
-        dataloader.unload_retraining_data() # Cleaning dataloader for performance issues
+    if args.mode == 'revalidation': 
+        pprint(f'Hopefully setting threshold to {performance.max_anomaly_score_fp }')  
+        ids_retrained.determine_threshold()
+        dataloader.unload_revalidation_data()
+    
+    elif args.mode == 'retraining' or args.mode == 'conceptdrift':
+        dataloader.unload_retraining_data()
         if args.freeze_on_retraining == 'True':
             pprint(f"Freezing Threshold on: {ids.threshold}")
             ids_retrained.threshold = ids.threshold
         else: 
             ids_retrained.determine_threshold()
-        
-    elif args.to_dataset_playing_back == 'validation': # Hier wird der Schwellenwert noch neu bestimmt.
-        ids_retrained.determine_threshold()  
-        dataloader.unload_revalidation_data()
-    else: 
-        ids_retrained.threshold = performance.max_anomaly_score_fp 
-        pprint(f"Threshold now on {ids_retrained.threshold} ")     
-        
-        
+           
+
     performance_new = ids_retrained.detect_parallel()        
     results_new = performance_new.get_results()
     pprint(results_new)
@@ -460,7 +464,7 @@ if __name__ == '__main__':
     
     # Preparing second results
     algorithm_name = f"som_retrained"
-    config_name = f"algorithm_{algorithm_name}_c_{args.config}_p_{args.play_back_count_alarms}_lr_{args.learning_rate}_n_{ngram_length}_w_{window_length}_t_{thread_aware}"
+    config_name = f"algorithm_{algorithm_name}_c_{args.config}_p_{args.play_back_count_alarms}_m_{args.mode}_lr_{args.learning_rate}_n_{ngram_length}_w_{window_length}_t_{thread_aware}"
 
     # Enrich results with configuration 
     results_new['algorithm'] = 'som'
@@ -471,7 +475,7 @@ if __name__ == '__main__':
         
     results_new['config'] = ids.get_config() # Produces strangely formatted Config-Print
     results_new['scenario'] =  args.version + "/" + args.scenario
-    result_new_path = f"{args.results}/results_{algorithm_name}_config_{args.config}_p_{args.play_back_count_alarms}_lr_{args.learning_rate}_{args.version}_{args.scenario}.json"
+    result_new_path = f"{args.results}/results_{algorithm_name}_config_{args.config}_p_{args.play_back_count_alarms}_m_{args.mode}_lr_{args.learning_rate}_{args.version}_{args.scenario}.json"
 
     # Save results
     save_to_json(results_new, result_new_path) 
