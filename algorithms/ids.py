@@ -64,7 +64,7 @@ class IDS:
         self.performance.set_threshold(max_score)
         if self.plot is not None:
             self.plot.threshold = max_score
-        print(f"threshold={max_score:.3f}".rjust(27))
+        print(f"threshold={max_score}".rjust(27))
 
     def detect(self) -> Performance:
         """
@@ -72,10 +72,10 @@ class IDS:
         calling performance object for measurement and
         plot object if plot_switch is True
         """
+        self.performance = Performance(True)
         data = self._data_loader.test_data()
         description = 'anomaly detection'.rjust(27)
         self.performance._threshold = self.threshold
-
         for recording in tqdm(data, description, unit=" recording"):
             self.performance.new_recording(recording)
             if self.plot is not None:
@@ -89,6 +89,9 @@ class IDS:
                         self.plot.add_to_plot_data(anomaly_score, syscall, self.performance.get_cfp_indices())
             self._data_preprocessor.new_recording()
 
+            self.performance._cfp_end_exploits()
+            self.performance._cfp_end_normal()
+            
             # run end alarm once to ensure that last alarm gets saved
             if self.performance.alarms is not None:
                 self.performance.alarms.end_alarm()

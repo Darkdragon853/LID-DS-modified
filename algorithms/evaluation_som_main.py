@@ -388,7 +388,6 @@ if __name__ == '__main__':
         settings_dict['w2v_epochs'] = w2v_epochs
         settings_dict['som_epochs'] = som_epochs
         settings_dict['thread_aware'] = thread_aware
-        settings_dict['mode'] = args.mode
 
         # Building Blocks 
         syscall = SyscallName()
@@ -439,9 +438,9 @@ if __name__ == '__main__':
         
         
 
-    pprint("At evaluation:")
+    
     if args.mode == 'revalidation': 
-        pprint(f'Hopefully setting threshold to {performance.max_anomaly_score_fp }')  
+        # pprint(f'Hopefully setting threshold to {performance.max_anomaly_score_fp }')  
         ids_retrained.determine_threshold()
         dataloader.unload_revalidation_data()
     
@@ -453,7 +452,7 @@ if __name__ == '__main__':
         else: 
             ids_retrained.determine_threshold()
            
-
+    pprint("At evaluation:")
     performance_new = ids_retrained.detect_parallel()        
     results_new = performance_new.get_results()
     pprint(results_new)
