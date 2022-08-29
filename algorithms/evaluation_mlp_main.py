@@ -879,9 +879,9 @@ if __name__ == '__main__':
         
         
     if args.to_dataset_playing_back == 'validation':
-        # ids_retrained.determine_threshold()
-        pprint(f'Setting new threshold to {performance.max_anomaly_score_fp}')
-        ids_retrained.threshold = performance.max_anomaly_score_fp
+        ids_retrained.determine_threshold()
+        pprint(f'Setting new threshold to hopefully {performance.max_anomaly_score_fp}')
+        # ids_retrained.threshold = performance.max_anomaly_score_fp
         dataloader.unload_revalidation_data()
         
     else: 
