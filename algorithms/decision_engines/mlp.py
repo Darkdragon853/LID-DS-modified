@@ -71,7 +71,7 @@ class MLP(BuildingBlock):
                  hidden_layers: int,
                  batch_size: int,
                  learning_rate: float = 0.003,
-                #  use_independent_validation: bool = False
+                 use_independent_validation: bool = False
                  ):
         super().__init__()
 
@@ -81,7 +81,7 @@ class MLP(BuildingBlock):
         self.hidden_layers = hidden_layers
         self.batch_size = batch_size
         self.learning_rate = learning_rate
-        # self._use_independent_validation = use_independent_validation
+        self._use_independent_validation = use_independent_validation
 
         self._dependency_list = [input_vector, output_label]
 
@@ -126,14 +126,14 @@ class MLP(BuildingBlock):
             Args:
                 syscall: the current system call object
         """
-        # if self._use_independent_validation:
-        #     pass
-        # else: 
-        input_vector = self.input_vector.get_result(syscall)
-        output_label = self.output_label.get_result(syscall)
+        if self._use_independent_validation:
+            pass
+        else: 
+            input_vector = self.input_vector.get_result(syscall)
+            output_label = self.output_label.get_result(syscall)
 
-        if input_vector is not None and output_label is not None:
-            self._validation_set.add((input_vector, output_label))
+            if input_vector is not None and output_label is not None:
+                self._validation_set.add((input_vector, output_label))
 
     def set_learning_rate(self, learning_rate):
         self.learning_rate = learning_rate
@@ -161,37 +161,37 @@ class MLP(BuildingBlock):
         optimizer = optim.Adam(self._model.parameters(), lr=self.learning_rate)  # using Adam optimizer
 
 
+        # Entscheidet ob die Sets so wie sie sind genommen werden oder nur das Trainingsset für den Fit benutzt wird. (Wird unterteilt in Training + Validation)
+        if self._use_independent_validation:
+            # building the datasets
+            train_set_length = len(self._training_set)
+            interrupt_counter = round(0.8 * train_set_length) # Aufteilung 80 % Training, 20% Verify
         
-        # if self._use_independent_validation:
-        #     # building the datasets
-        #     train_set_length = len(self._training_set)
-        #     interrupt_counter = round(0.8 * train_set_length) # Aufteilung 80 % Training, 20% Verify
+            # Sets for train-phase
+            final_train_set = set()
+            final_val_set = set()
         
-        #     # Sets for train-phase
-        #     final_train_set = set()
-        #     final_val_set = set()
+            counter = 0
+            for tuple in self._training_set:
+                if counter >= interrupt_counter: 
+                    final_val_set.add(tuple)
+                else: 
+                    final_train_set.add(tuple)
+                counter += 1
         
-        #     counter = 0
-        #     for tuple in self._training_set:
-        #         if counter >= interrupt_counter: 
-        #             final_val_set.add(tuple)
-        #         else: 
-        #             final_train_set.add(tuple)
-        #         counter += 1
-        
-        #     pprint(f"Train_set_length was {train_set_length}, is now splitted in {len(final_train_set)} parts training and {len(final_val_set)} parts verify.")
+            pprint(f"Train_set_length was {train_set_length}, is now splitted in {len(final_train_set)} parts training and {len(final_val_set)} parts verify.")
 
-        #     train_data_set = MLPDataset(final_train_set) 
-        #     val_data_set = MLPDataset(final_val_set)
+            train_data_set = MLPDataset(final_train_set) 
+            val_data_set = MLPDataset(final_val_set)
         
-        # else: 
-        #     # building the datasets
-        #     train_data_set = MLPDataset(self._training_set) 
-        #     val_data_set = MLPDataset(self._validation_set)
+        else: 
+            # building the datasets
+            train_data_set = MLPDataset(self._training_set) 
+            val_data_set = MLPDataset(self._validation_set)
         
         
-        train_data_set = MLPDataset(self._training_set) 
-        val_data_set = MLPDataset(self._validation_set)
+        # train_data_set = MLPDataset(self._training_set) 
+        # val_data_set = MLPDataset(self._validation_set)
         
         # loss preparation for early stop of training
         epochs_since_last_best = 0
