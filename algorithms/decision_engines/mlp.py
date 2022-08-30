@@ -189,10 +189,6 @@ class MLP(BuildingBlock):
             train_data_set = MLPDataset(self._training_set) 
             val_data_set = MLPDataset(self._validation_set)
         
-        
-        # train_data_set = MLPDataset(self._training_set) 
-        # val_data_set = MLPDataset(self._validation_set)
-        
         # loss preparation for early stop of training
         epochs_since_last_best = 0
         best_avg_loss = math.inf

@@ -281,14 +281,26 @@ if __name__ == '__main__':
 
             select = Select(ngram, start = 0, end = (w2v_vector_size * ngram_length)) 
 
-            mlp = MLP(select,
-                ohe,
-                hidden_size,
-                hidden_layers,
-                batch_size,
-                learning_rate,
-                args.use_independent_validation
-            )
+            if args.use_independent_validation == 'True':
+                mlp = MLP(select,
+                    ohe,
+                    hidden_size,
+                    hidden_layers,
+                    batch_size,
+                    learning_rate,
+                    True
+                )
+                
+            # False-Fall
+            else: 
+                mlp = MLP(select,
+                    ohe,
+                    hidden_size,
+                    hidden_layers,
+                    batch_size,
+                    learning_rate,
+                    False    
+                )
             
             decision_engine = StreamSum(mlp, thread_aware, window_length)
     
@@ -338,14 +350,26 @@ if __name__ == '__main__':
 
             select = Select(ngram, start = 0, end = (w2v_vector_size * ngram_length)) 
 
-            mlp = MLP(select,
-                ohe,
-                hidden_size,
-                hidden_layers,
-                batch_size,
-                learning_rate,
-                args.use_independent_validation
-            )
+            if args.use_independent_validation == 'True':
+                mlp = MLP(select,
+                    ohe,
+                    hidden_size,
+                    hidden_layers,
+                    batch_size,
+                    learning_rate,
+                    True
+                )
+                
+            # False-Fall
+            else: 
+                mlp = MLP(select,
+                    ohe,
+                    hidden_size,
+                    hidden_layers,
+                    batch_size,
+                    learning_rate,
+                    False    
+                )
             
             decision_engine = StreamSum(mlp, thread_aware, window_length)
     
@@ -384,14 +408,26 @@ if __name__ == '__main__':
             
             select_ohe = Select(ngram_ohe, 0, (ngram_length * ohe_embedding_size)) 
             
-            mlp = MLP(select_ohe,
-                ohe,
-                hidden_size,
-                hidden_layers,
-                batch_size,
-                learning_rate,
-                args.use_independent_validation
-            )   
+            if args.use_independent_validation == 'True':
+                mlp = MLP(select_ohe,
+                    ohe,
+                    hidden_size,
+                    hidden_layers,
+                    batch_size,
+                    learning_rate,
+                    True
+                )
+                
+            # False-Fall
+            else: 
+                mlp = MLP(select_ohe,
+                    ohe,
+                    hidden_size,
+                    hidden_layers,
+                    batch_size,
+                    learning_rate,
+                    False    
+                )
     
             decision_engine = StreamSum(mlp, thread_aware, window_length)
         
@@ -428,14 +464,26 @@ if __name__ == '__main__':
             
             select_ohe = Select(ngram_ohe, 0, (ngram_length * ohe_embedding_size)) 
             
-            mlp = MLP(select_ohe,
-                ohe,
-                hidden_size,
-                hidden_layers,
-                batch_size,
-                learning_rate,
-                args.use_independent_validation
-            )   
+            if args.use_independent_validation == 'True':
+                mlp = MLP(select_ohe,
+                    ohe,
+                    hidden_size,
+                    hidden_layers,
+                    batch_size,
+                    learning_rate,
+                    True
+                )
+                
+            # False-Fall
+            else: 
+                mlp = MLP(select_ohe,
+                    ohe,
+                    hidden_size,
+                    hidden_layers,
+                    batch_size,
+                    learning_rate,
+                    False    
+                )
     
             decision_engine = StreamSum(mlp, thread_aware, window_length)
     
@@ -483,14 +531,26 @@ if __name__ == '__main__':
 
             select = Select(ngram, start = 0, end = (w2v_vector_size * ngram_length)) 
 
-            mlp = MLP(select,
-                ohe,
-                hidden_size,
-                hidden_layers,
-                batch_size,
-                learning_rate,
-                args.use_independent_validation
-            )
+            if args.use_independent_validation == 'True':
+                mlp = MLP(select,
+                    ohe,
+                    hidden_size,
+                    hidden_layers,
+                    batch_size,
+                    learning_rate,
+                    True
+                )
+                
+            # False-Fall
+            else: 
+                mlp = MLP(select,
+                    ohe,
+                    hidden_size,
+                    hidden_layers,
+                    batch_size,
+                    learning_rate,
+                    False    
+                )
             
             decision_engine = StreamSum(mlp, thread_aware, window_length)   
         
@@ -520,9 +580,10 @@ if __name__ == '__main__':
     pprint(performance)
     results = performance.get_results()
     pprint(results)
-    
+
+    exit()
     # Preparing results
- 
+    
     # config_name = f"algorithm_mlp_c_{args.config}_i_{args.use_independent_validation}_lr_{args.learning_rate}_n_{ngram_length}_t_{thread_aware}"
     config_name = f"algorithm_mlp_c_{args.config}_lr_{args.learning_rate}_n_{ngram_length}_t_{thread_aware}"
     
@@ -638,14 +699,26 @@ if __name__ == '__main__':
 
                 select = Select(ngram, start = 0, end = (w2v_vector_size * ngram_length)) 
 
-                mlp = MLP(select,
-                    ohe,
-                    hidden_size,
-                    hidden_layers,
-                    batch_size,
-                    learning_rate,
-                    args.use_independent_validation
-                )
+                if args.use_independent_validation == 'True':
+                    mlp = MLP(select,
+                        ohe,
+                        hidden_size,
+                        hidden_layers,
+                        batch_size,
+                        learning_rate,
+                        True
+                    )
+                
+                # False-Fall
+                else: 
+                    mlp = MLP(select,
+                        ohe,
+                        hidden_size,
+                        hidden_layers,
+                        batch_size,
+                        learning_rate,
+                        False    
+                    )
                 
                 decision_engine = StreamSum(mlp, thread_aware, window_length)
         
@@ -695,14 +768,26 @@ if __name__ == '__main__':
 
                 select = Select(ngram, start = 0, end = (w2v_vector_size * ngram_length)) 
 
-                mlp = MLP(select,
-                    ohe,
-                    hidden_size,
-                    hidden_layers,
-                    batch_size,
-                    learning_rate,
-                    args.use_independent_validation
-                )
+                if args.use_independent_validation == 'True':
+                    mlp = MLP(select,
+                        ohe,
+                        hidden_size,
+                        hidden_layers,
+                        batch_size,
+                        learning_rate,
+                        True
+                    )
+                
+                # False-Fall
+                else: 
+                    mlp = MLP(select,
+                        ohe,
+                        hidden_size,
+                        hidden_layers,
+                        batch_size,
+                        learning_rate,
+                        False    
+                    )
                 
                 decision_engine = StreamSum(mlp, thread_aware, window_length)
         
@@ -741,14 +826,26 @@ if __name__ == '__main__':
                 
                 select_ohe = Select(ngram_ohe, 0, (ngram_length * ohe_embedding_size)) 
                 
-                mlp = MLP(select_ohe,
-                    ohe,
-                    hidden_size,
-                    hidden_layers,
-                    batch_size,
-                    learning_rate,
-                    args.use_independent_validation
-                )   
+                if args.use_independent_validation == 'True':
+                    mlp = MLP(select,
+                        ohe,
+                        hidden_size,
+                        hidden_layers,
+                        batch_size,
+                        learning_rate,
+                        True
+                    )
+                
+                # False-Fall
+                else: 
+                    mlp = MLP(select,
+                        ohe,
+                        hidden_size,
+                        hidden_layers,
+                        batch_size,
+                        learning_rate,
+                        False    
+                    )
         
                 decision_engine = StreamSum(mlp, thread_aware, window_length)
             
@@ -786,15 +883,26 @@ if __name__ == '__main__':
 
                 select_ohe = Select(ngram_ohe, 0, (ngram_length * ohe_embedding_size)) 
             
-                mlp = MLP(select_ohe,
-                    ohe,
-                    hidden_size,
-                    hidden_layers,
-                    batch_size,
-                    learning_rate,
-                    args.use_independent_validation
-                )   
-    
+                if args.use_independent_validation == 'True':
+                    mlp = MLP(select,
+                        ohe,
+                        hidden_size,
+                        hidden_layers,
+                        batch_size,
+                        learning_rate,
+                        True
+                    )
+                
+                # False-Fall
+                else: 
+                    mlp = MLP(select,
+                        ohe,
+                        hidden_size,
+                        hidden_layers,
+                        batch_size,
+                        learning_rate,
+                        False    
+                    )
                 decision_engine = StreamSum(mlp, thread_aware, window_length)
     
         ##################################### Config 4 ######################################### 
@@ -842,15 +950,26 @@ if __name__ == '__main__':
 
                 select = Select(ngram, start = 0, end = (w2v_vector_size * ngram_length)) 
 
-                mlp = MLP(select,
-                    ohe,
-                    hidden_size,
-                    hidden_layers,
-                    batch_size,
-                    learning_rate,
-                    args.use_independent_validation
-                )
-
+                if args.use_independent_validation == 'True':
+                    mlp = MLP(select,
+                        ohe,
+                        hidden_size,
+                        hidden_layers,
+                        batch_size,
+                        learning_rate,
+                        True
+                    )
+                
+                # False-Fall
+                else: 
+                    mlp = MLP(select,
+                        ohe,
+                        hidden_size,
+                        hidden_layers,
+                        batch_size,
+                        learning_rate,
+                        False                   
+                    )
                 decision_engine = StreamSum(mlp, thread_aware, window_length) 
         
         else:
