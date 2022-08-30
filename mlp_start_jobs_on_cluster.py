@@ -26,10 +26,10 @@ if __name__ == '__main__':
         '4'
         ]
     
-    # independent_validations = [
-        # 'True', 
-        # 'False'
-        # ]
+    independent_validations = [
+        'True', 
+        'False'
+        ]
     
     learning_rates = [
         0.003,
@@ -87,7 +87,7 @@ if __name__ == '__main__':
         # for play_back_count in number_of_play_back_alarms:
         for config in mlp_configs:
                 for learning_rate in learning_rates:
-                    # for validation_mode in independent_validations:
+                    for validation_mode in independent_validations:
                         for mode in modes:
                             for freeze in freezing:
                                 for scenario in scenario_names:
@@ -97,7 +97,7 @@ if __name__ == '__main__':
                                     if mode == 'revalidation' and freeze == 'True':
                                         continue # Ergibt keinen Sinn bei neuem Schwellenweert.
                                     
-                                    command = f'sbatch --job-name=mlp{job_counter:03} evaluation_mlp.job {version} {scenario} {config} {result_path} {learning_rate} {mode} {freeze}'
+                                    command = f'sbatch --job-name=mlp{job_counter:03} evaluation_mlp.job {version} {scenario} {config} {result_path} {learning_rate} {mode} {freeze} {validation_mode}'
                                     os.system(command)
 
                                     job_counter += 1
