@@ -1,4 +1,5 @@
 from functools import lru_cache
+from decimal import Decimal
 import math
 from pprint import pprint
 import sys
@@ -299,8 +300,8 @@ class MLP(BuildingBlock):
         with torch.no_grad():
             mlp_out = self._model(in_tensor)
         result = 1 - mlp_out[label_index].item()
-        
-        return result
+        return Decimal(f'{result}')
+
 
 
     def depends_on(self):

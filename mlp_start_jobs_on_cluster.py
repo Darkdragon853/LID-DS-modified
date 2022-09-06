@@ -22,12 +22,12 @@ if __name__ == '__main__':
         # '0',
         # '1',
         '2',
-        '3',
-        '4'
+        # '3',
+        # '4'
         ]
     
     independent_validations = [
-        'True', 
+        # 'True', 
         'False'
         ]
     
