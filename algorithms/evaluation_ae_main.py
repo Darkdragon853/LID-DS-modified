@@ -11,19 +11,13 @@ from copy import deepcopy
 from tqdm.contrib.concurrent import process_map
 from functools import reduce
 from time import time
+from algorithms.decision_engines.ae import AE, AEMode
 
-from algorithms.decision_engines.mlp import MLP
-from algorithms.decision_engines.stide import Stide
-from algorithms.decision_engines.ae import AE
 from algorithms.ids import IDS
-from algorithms.features.impl.select import Select
 from algorithms.features.impl.int_embedding import IntEmbedding
 from algorithms.features.impl.ngram import Ngram
 from algorithms.features.impl.ngram import Ngram
 from algorithms.features.impl.one_hot_encoding import OneHotEncoding
-from algorithms.features.impl.stream_sum import StreamSum
-from algorithms.features.impl.syscall_name import SyscallName
-from algorithms.features.impl.w2v_embedding import W2VEmbedding
 from algorithms.persistance import save_to_json
 from algorithms.performance_measurement import Performance
 
@@ -32,7 +26,7 @@ from dataloader.direction import Direction
 
 
 # CONSTANTS
-LEARNING_RATE_CONSTANT = 0.003
+LEARNING_RATE_CONSTANT = 0.001
 
 
 
@@ -47,7 +41,7 @@ class FalseAlertContainer:
     
 class FalseAlertResult:
     def __init__(self, name, syscalls) -> None:
-        self.name = name # Hier was mit der Zeit machen sonst bekomme ich wieder Probleme.
+        self.name = name 
         self.syscalls = syscalls
         self.structure = {name: syscalls}
         
@@ -95,24 +89,28 @@ def calculate(struct: Container) -> Performance:
 
 
 def construct_Syscalls(container: FalseAlertContainer) -> FalseAlertResult:
+    # Nehme dir den momentanen Alarm und die Liste an Aufzeichnungen her
     alarm = container.alarm
     alarm_recording_list = container.alarm_recording_list
     
+    # Bestimme die passende Aufzeichnung zum Alarm
     faster_current_basename = os.path.basename(alarm.filepath)
     for recording in alarm_recording_list:
         if os.path.basename(recording.path) == faster_current_basename:
             current_recording = recording
     
-    
+    # Extrahiere nun alle Syscalls zwischen Ende und Anfang des False-Alarms und zusätzlich das Fenster davor
     systemcall_list = [systemcall for systemcall in current_recording.syscalls() if systemcall.line_id >= max([alarm.first_line_id - container.window_length, 0]) and systemcall.line_id <= alarm.last_line_id] 
     
     if container.thread_aware:
-            
+        # Check ob es noch Syscalls vor dem Anfang des Alarms - Fenster gibt
+        number_of_required_previous_calls = container.ngram_length + container.window_length
         backwards_counter = max([alarm.first_line_id - container.window_length -1, 0]) 
         if backwards_counter != 0:
+            # Sammle alle bisher gefundenen ThreadIDs, deren N-Gramme wir nun befüllen müssen
             thread_id_set = set([systemcall.thread_id() for systemcall in systemcall_list])
 
-
+            # Zähle die rekonstruierten Syscalls pro ThreadID
             dict = {}
             for thread in thread_id_set:
                 dict[thread] = 0
@@ -122,32 +120,34 @@ def construct_Syscalls(container: FalseAlertContainer) -> FalseAlertResult:
                 temp_list.append(x)
                 if x.line_id == alarm.last_line_id:
                     break 
-           
+           # Erschaffe eine kleinere Liste an Systemcalls vom Anfang der Datei bis zum Ende des Alarms. Drehe sie dann um.
             temp_list.reverse() 
-                
-            while(not enough_calls(dict, container.ngram_length) and backwards_counter != 0):
+            # Solange wir nich für jede ThreadID genau ngram_length viele Syscalls gefunden haben und noch nicht am Anfang der Datei sind
+            while(not enough_calls(dict, number_of_required_previous_calls) and backwards_counter != 0):
+                # Finde den Systemcall, der die gleiche LineID wie unser BackwardsCounter hat
                 current_call = None
                 for call in temp_list:
                     if call.line_id == backwards_counter:
                         current_call = call  
                         break  
-                    
+                # Ist keine solche LineID vorhanden, dann skippe diesen Wert.
                 if current_call is None:
                     backwards_counter -=1 
                     continue
-                    
-                if current_call.thread_id() in dict.keys() and dict[current_call.thread_id()] < container.ngram_length:
+                # Sollten noch Systemcalls für diese ThreadID fehlen, dann füge diese am Anfang der Liste hinzu
+                if current_call.thread_id() in dict.keys() and dict[current_call.thread_id()] < number_of_required_previous_calls:
                     dict[current_call.thread_id()] += 1 
                     systemcall_list.insert(0, current_call)
                         
                 backwards_counter -= 1
                 
     else:
-
+        # Fülle die Liste nur mit den Calls zwischen Ende und Anfang des Alarms, plus die des Fensters und die von einer ThreadID, also ngram_length viele.
         systemcall_list = [systemcall for systemcall in current_recording.syscalls() if systemcall.line_id >= max([alarm.first_line_id - container.window_length - container.ngram_length, 0]) and systemcall.line_id <= alarm.last_line_id] # mit Fensterbetrachtung
         
-        
+    # Als ID nehmen wir das Recording und die Zeit und fügen als Wert die extrahierten Calls zu.
     result = FalseAlertResult(f"{os.path.basename(current_recording.path)}_{str(round(time()*1000))[-5:]}", systemcall_list)
+    # Wir speichern das nochmals in einem Dict um die Parallelisierung zu ermöglichen.
     result.structure[result.name] = result.syscalls
         
     return result  
@@ -180,10 +180,10 @@ def parse_cli_arguments():
     parser.add_argument('--play_back_count_alarms', '-p' , choices=['1', '2', '3', 'all'], default='all', help='Number of False Alarms that shall be played back or all.')
     parser.add_argument('--results', '-r', default='results', help='Path for the results of the evaluation')
     parser.add_argument('--base-path', '-b', default='/work/user/lz603fxao/Material', help='Base path of the LID-DS')
-    parser.add_argument('--config', '-c', choices=['0', '1', '2', '3', '4'], default='0', help='Configuration of the MLP which will be used in this evaluation')
-    # parser.add_argument('--use-independent-validation', '-u', choices=['True', 'False'], required=False, help='Indicates if the MLP will use the validation dataset for threshold AND stop of training or only for threshold.')
-    parser.add_argument('--learning-rate', '-l', default=LEARNING_RATE_CONSTANT, type=float, choices=numpy.arange(0.001, 0.010, 0.001), help='Learning rate of the mlp algorithm of the new IDS')
-    parser.add_argument('--to-dataset-playing-back', '-t', default = 'training', choices=['training', 'validation'], help='Decides in which dataset the false-positives will be played back.')
+    parser.add_argument('--config', '-c', choices=['0', '1', '2'], default='0', help='Configuration of the MLP which will be used in this evaluation')
+    parser.add_argument('--use-independent-validation', '-u', choices=['True', 'False'], default='False', required=False, help='Indicates if the AE will use the validation dataset for threshold AND stop of training or only for threshold.')
+    parser.add_argument('--learning-rate', '-l', default=LEARNING_RATE_CONSTANT, type=float, choices=[0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009], help='Learning rate of the mlp algorithm of the new IDS')
+    parser.add_argument('--mode', '-m', default = 'retraining', choices=['retraining', 'revalidation', 'conceptdrift'], help='Decides in which mode the playing back will work.')
     parser.add_argument('--freeze-on-retraining', '-f', default='False', choices=['True', 'False'], help='After the retraining of the IDS, will you freeze the original threshold or calculate a new one?')
 
     return parser.parse_args()
@@ -201,22 +201,26 @@ if __name__ == '__main__':
         sys.exit('This combination of LID-DS Version and Scenario aren\'t available.')
      
     # Check ob ins Valid-Set gespielt wird, dabei aber Freeze Threshold verlangt wird oder eine andere learning rate.
-    if args.to_dataset_playing_back == 'validation':
+    if args.mode == 'revalidation':
         if args.freeze_on_retraining == 'True':
             sys.exit('This combination can\'t be played since we want to play back the examples in the validation set. Therefore we MUST NOT freeze the threshold.')
         elif args.learning_rate != LEARNING_RATE_CONSTANT:
             sys.exit(f'Can\'t change the learning rate when we play back in the validation set. This should only influence the threshold. Default learning rate is {LEARNING_RATE_CONSTANT}.')
     
+    if args.mode == 'retraining':
+        if args.learning_rate != LEARNING_RATE_CONSTANT:
+            sys.exit(f'Can\'t change the learning rate when use retraining mode. Default learning rate is {LEARNING_RATE_CONSTANT}.')
     
-    pprint("Performing Host-based Intrusion Detection with AE:")
+     
+    pprint("Performing Host-based Intrusion Detection with MLP:")
     pprint(f"Version: {args.version}") 
     pprint(f"Scenario: {args.scenario}")
-    # pprint(f"Algorithm: {args.algorithm}")
     pprint(f"Configuration: {args.config}")
-    pprint(f"Learning-Rate of new IDS: {args.learning_rate}")
-    # pprint(f"State of independent validation: {args.use_independent_validation}")
+    pprint(f"State of independent validation: {args.use_independent_validation}")
     pprint(f"Number of maximal played back false alarms: {args.play_back_count_alarms}")
-    pprint(f"Playing back into {args.to_dataset_playing_back} datatset.")
+    pprint(f"Playing back mode is: {args.mode}")
+    if args.mode == 'conceptdrift':
+        pprint(f"Learning-Rate of the new IDS: {args.learning_rate}")
     pprint(f"Treshold freezing on seconds IDS: {args.freeze_on_retraining}")
     pprint(f"Results path: {args.results}")
     pprint(f"Base path: {args.base_path}")
@@ -225,239 +229,90 @@ if __name__ == '__main__':
     dataloader = dataloader_factory(scenario_path,direction=Direction.BOTH) # Results differ, currently BOTH was the best performing
     
     #--------------------
+        
+    # Configuration of chosen decision engines. Choosing best configs in MLPs for equalness. Grimmers Paper.
+    ####################
     
     settings_dict = {} # Enthält die Konfig-Infos
     
+    ##################################### Config 0 ######################################### 
     if args.config == '0':
-        
-        ##################################### Config 0 ######################################### 
-        
+            
         # Settings
-        ngram_length = 5
-        w2v_vector_size = 5
-        w2v_window_size = 10
-        w2v_epochs = 1000
+        ngram_length = 3
+        hidden_size = 2
         thread_aware = True
-        hidden_size = 64
-        batch_size = 256
- 
         learning_rate = 0.003
-        window_length = 10
+        batch_size = 256
+        window_length = 1
         
         settings_dict['ngram_length'] = ngram_length
-        settings_dict['w2v_vector_size'] = w2v_vector_size
-        settings_dict['w2v_window_size'] = w2v_window_size
         settings_dict['thread_aware'] = thread_aware
-        settings_dict['hidden_size'] = hidden_size
-        settings_dict['batch_size'] = batch_size
-        settings_dict['w2v_epochs'] = w2v_epochs
         settings_dict['learning_rate'] = learning_rate
+        settings_dict['batch_size'] = batch_size
+        settings_dict['hidden_size'] = hidden_size
         settings_dict['window_length'] = window_length
         
         # Building Blocks
         inte = IntEmbedding()
-        w2v = W2VEmbedding(word=inte,
-                       vector_size=w2v_vector_size,
-                       window_size=w2v_window_size,
-                       epochs=w2v_epochs,
-                       thread_aware=thread_aware)
         
-        ngram = Ngram([w2v], thread_aware, ngram_length) 
-        ae = AE(input_vector=ngram,
-                hidden_size=hidden_size,
-                batch_size=batch_size)
-        
-        decision_engine = StreamSum(ae, thread_aware, window_length)
+        ohe = OneHotEncoding(inte)
+        ngram = Ngram([ohe], thread_aware, ngram_length) 
+        ae = AE(ngram, learning_rate=args.learning_rate, mode=AEMode.LOSS, batch_size=batch_size)
+        decision_engine = ae
     
     ##################################### Config 1 ######################################### 
-    # elif args.config == '1':
+    elif args.config == '1':
+            
+        # Settings
+        ngram_length = 5
+        hidden_size = 2
+        thread_aware = True
+        learning_rate = 0.003
+        batch_size = 256
+        window_length = 1
         
-    #     # Settings
-    #     ngram_length = 3
-    #     w2v_vector_size = 8
-    #     w2v_window_size = 15
-    #     thread_aware = True
-    #     hidden_size = 32
-    #     hidden_layers = 4
-    #     batch_size = 256
-    #     w2v_epochs = 1000
-    #     learning_rate = 0.003
-    #     window_length = 100       
+        settings_dict['ngram_length'] = ngram_length
+        settings_dict['thread_aware'] = thread_aware
+        settings_dict['learning_rate'] = learning_rate
+        settings_dict['batch_size'] = batch_size
+        settings_dict['hidden_size'] = hidden_size
+        settings_dict['window_length'] = window_length
         
+        # Building Blocks
+        inte = IntEmbedding()
         
-    #     settings_dict['ngram_length'] = ngram_length
-    #     settings_dict['w2v_vector_size'] = w2v_vector_size
-    #     settings_dict['w2v_window_size'] = w2v_window_size
-    #     settings_dict['thread_aware'] = thread_aware
-    #     settings_dict['hidden_size'] = hidden_size
-    #     settings_dict['hidden_layers'] = hidden_layers
-    #     settings_dict['batch_size'] = batch_size
-    #     settings_dict['w2v_epochs'] = w2v_epochs
-    #     settings_dict['learning_rate'] = learning_rate
-    #     settings_dict['window_length'] = window_length
-        
-        
-    #     # Building Blocks
-    #     inte = IntEmbedding()
-    #     w2v = W2VEmbedding(word=inte,
-    #                    vector_size=w2v_vector_size,
-    #                    window_size=w2v_window_size,
-    #                    epochs=w2v_epochs,
-    #                    thread_aware=thread_aware)
-        
-    #     ohe = OneHotEncoding(inte)
-    #     ngram = Ngram([w2v], thread_aware, ngram_length + 1) 
-    #     select = Select(ngram, start = 0, end = (w2v_vector_size * ngram_length)) 
-
-    #     mlp = MLP(select,
-    #         ohe,
-    #         hidden_size,
-    #         hidden_layers,
-    #         batch_size,
-    #         learning_rate,
-    #         # independent_validation
-    #     )
-        
-    #     decision_engine = StreamSum(mlp, thread_aware, window_length)
+        ohe = OneHotEncoding(inte)
+        ngram = Ngram([ohe], thread_aware, ngram_length) 
+        ae = AE(ngram, learning_rate=args.learning_rate, mode=AEMode.LOSS, batch_size=batch_size)
+        decision_engine = ae
     
-    # ##################################### Config 2 ######################################### 
-    # elif args.config == '2':
+    ##################################### Config 2 ######################################### 
+    elif args.config == '2':
+            
+        # Settings
+        ngram_length = 7
+        hidden_size = 2
+        thread_aware = True
+        learning_rate = 0.003
+        batch_size = 256
+        window_length = 1
         
-    #     # Settings
-    #     ngram_length = 7
-    #     thread_aware = True
-    #     hidden_size = 64
-    #     hidden_layers = 3
-    #     batch_size = 256
-    #     learning_rate = 0.003
-    #     window_length = 5
+        settings_dict['ngram_length'] = ngram_length
+        settings_dict['thread_aware'] = thread_aware
+        settings_dict['learning_rate'] = learning_rate
+        settings_dict['batch_size'] = batch_size
+        settings_dict['hidden_size'] = hidden_size
+        settings_dict['window_length'] = window_length
         
-    #     settings_dict['ngram_length'] = ngram_length
-    #     settings_dict['thread_aware'] = thread_aware
-    #     settings_dict['hidden_size'] = hidden_size
-    #     settings_dict['hidden_layers'] = hidden_layers
-    #     settings_dict['batch_size'] = batch_size
-    #     settings_dict['learning_rate'] = learning_rate
-    #     settings_dict['window_length'] = window_length
+        # Building Blocks
+        inte = IntEmbedding()
         
-    #     # Calculate Embedding_size
-    #     temp_i = IntEmbedding()
-    #     temp_ohe = OneHotEncoding(temp_i)
-    #     mini_ids = IDS(dataloader, temp_ohe, False, False)
-    #     ohe_embedding_size = temp_ohe.get_embedding_size()
-        
-    #     # Building Blocks
-    #     inte = IntEmbedding()
-        
-    #     ohe = OneHotEncoding(inte)
-        
-    #     ngram_ohe = Ngram([ohe], thread_aware, ngram_length + 1)
-        
-    #     select_ohe = Select(ngram_ohe, 0, (ngram_length * ohe_embedding_size)) 
-        
-    #     mlp = MLP(select_ohe,
-    #         ohe,
-    #         hidden_size,
-    #         hidden_layers,
-    #         batch_size,
-    #         learning_rate,
-    #         # independent_validation
-    #     )   
-
-    #     decision_engine = StreamSum(mlp, thread_aware, window_length)
-        
-    # elif args.config == '3': 
-    #     # Settings
-    #     ngram_length = 5
-    #     thread_aware = True
-    #     hidden_size = 64
-    #     hidden_layers = 4
-    #     batch_size = 512
-    #     learning_rate = 0.003
-    #     window_length = 20
-        
-    #     settings_dict['ngram_length'] = ngram_length
-    #     settings_dict['thread_aware'] = thread_aware
-    #     settings_dict['hidden_size'] = hidden_size
-    #     settings_dict['hidden_layers'] = hidden_layers
-    #     settings_dict['batch_size'] = batch_size
-    #     settings_dict['learning_rate'] = learning_rate
-    #     settings_dict['window_length'] = window_length
-        
-    #     # Calculate Embedding_size
-    #     temp_i = IntEmbedding()
-    #     temp_ohe = OneHotEncoding(temp_i)
-    #     mini_ids = IDS(dataloader, temp_ohe, False, False)
-    #     ohe_embedding_size = temp_ohe.get_embedding_size()
-        
-    #     # Building Blocks
-    #     inte = IntEmbedding()
-        
-    #     ohe = OneHotEncoding(inte)
-        
-    #     ngram_ohe = Ngram([ohe], thread_aware, ngram_length + 1)
-        
-    #     select_ohe = Select(ngram_ohe, 0, (ngram_length * ohe_embedding_size)) 
-        
-    #     mlp = MLP(select_ohe,
-    #         ohe,
-    #         hidden_size,
-    #         hidden_layers,
-    #         batch_size,
-    #         learning_rate,
-    #         # independent_validation
-    #     )   
-
-    #     decision_engine = StreamSum(mlp, thread_aware, window_length)
+        ohe = OneHotEncoding(inte)
+        ngram = Ngram([ohe], thread_aware, ngram_length) 
+        ae = AE(ngram, learning_rate=args.learning_rate, mode=AEMode.LOSS, batch_size=batch_size)
+        decision_engine = ae
     
-    # elif args.config == '4':
-    #   # Settings
-    #     ngram_length = 7
-    #     w2v_vector_size = 8
-    #     w2v_window_size = 20
-    #     thread_aware = True
-    #     hidden_size = 64
-    #     hidden_layers = 2
-    #     batch_size = 256
-    #     w2v_epochs = 1000
-    #     learning_rate = 0.003
-    #     window_length = 40       
-        
-        
-    #     settings_dict['ngram_length'] = ngram_length
-    #     settings_dict['w2v_vector_size'] = w2v_vector_size
-    #     settings_dict['w2v_window_size'] = w2v_window_size
-    #     settings_dict['thread_aware'] = thread_aware
-    #     settings_dict['hidden_size'] = hidden_size
-    #     settings_dict['hidden_layers'] = hidden_layers
-    #     settings_dict['batch_size'] = batch_size
-    #     settings_dict['w2v_epochs'] = w2v_epochs
-    #     settings_dict['learning_rate'] = learning_rate
-    #     settings_dict['window_length'] = window_length
-        
-        
-    #     # Building Blocks
-    #     inte = IntEmbedding()
-    #     w2v = W2VEmbedding(word=inte,
-    #                    vector_size=w2v_vector_size,
-    #                    window_size=w2v_window_size,
-    #                    epochs=w2v_epochs,
-    #                    thread_aware=thread_aware)
-        
-    #     ohe = OneHotEncoding(inte)
-    #     ngram = Ngram([w2v], thread_aware, ngram_length + 1) 
-    #     select = Select(ngram, start = 0, end = (w2v_vector_size * ngram_length)) 
-    #     mlp = MLP(select,
-    #         ohe,
-    #         hidden_size,
-    #         hidden_layers,
-    #         batch_size,
-    #         learning_rate,
-    #         # independent_validation
-    #     )
-        
-    #     decision_engine = StreamSum(mlp, thread_aware, window_length)   
-        
     else:
         exit('Unknown configuration of MLP. Exiting.')
         
@@ -484,10 +339,10 @@ if __name__ == '__main__':
     pprint(performance)
     results = performance.get_results()
     pprint(results)
-    
-    # pprint(ae._result_dict)
-    # Preparing results
 
+    exit()
+    # Preparing results
+    
     # config_name = f"algorithm_ae_c_{args.config}_i_{args.use_independent_validation}_lr_{args.learning_rate}_n_{ngram_length}_t_{thread_aware}"
     config_name = f"algorithm_ae_c_{args.config}_lr_{args.learning_rate}_n_{ngram_length}_t_{thread_aware}"
     
@@ -553,224 +408,145 @@ if __name__ == '__main__':
         exit(f'Percentage of {args.play_back_percentage} playing back alarms lead to playing back zero false alarms. Program stops.')
     
     
-    # pprint("All Artifical Recordings:")
-    # pprint(all_recordings)
-
-
-    if args.to_dataset_playing_back == 'training':
-        # Für Retraining
+    
+    
+    if args.mode == 'retraining':
         dataloader.set_retraining_data(all_recordings) # Fügt die neuen Trainingsbeispiele als zusätzliches Training ein.
-    # elif args.to_dataset_playing_back == 'validation' and independent_validation:
-    elif args.to_dataset_playing_back == 'validation':
-        dataloader.set_revalidation_data(all_recordings) # Fügt die neuen Trainingsbeispiele bei den Validierungsdaten ein.
-
-    ### Rebuilding IDS
-
-    # MLP - Rebuilding whole IDS BBs.
-        
-         # Hier wird eine neue Learning-Rate festgesetzt und dann das schon bestehende MLP zusätzlich auf den zurückgespielten Beispielen trainiert!
-    if args.learning_rate != learning_rate:
-        pprint("Learning rate wasn't original learning rate. Preparing necessary steps.")
-        # mlp.set_learning_rate(args.learning_rate)
-        # mlp._training_set = set()
-        dataloader.overwrite_training_data_with_retraining()
-        decision_engine = StreamSum(ae, thread_aware, window_length)      
-
-        settings_dict['new_learning_rate'] = args.learning_rate
-        
-    else:
+    
         settings_dict = {} # Enthält die Konfig-Infos
+        
         if args.config == '0':
-                
-            ##################################### Config 0 ######################################### 
+            
+            # Settings
+            ngram_length = 3
+            hidden_size = 2
+            thread_aware = True
+            learning_rate = 0.003
+            batch_size = 256
+
+            settings_dict['ngram_length'] = ngram_length
+            settings_dict['thread_aware'] = thread_aware
+            settings_dict['learning_rate'] = learning_rate
+            settings_dict['batch_size'] = batch_size
+            settings_dict['hidden_size'] = hidden_size
+
+            # Building Blocks
+            inte = IntEmbedding()
+
+            ohe = OneHotEncoding(inte)
+            ngram = Ngram([inte], thread_aware, ngram_length) 
+            ae = AE(ngram, learning_rate=args.learning_rate, mode=AEMode.LOSS, batch_size=batch_size)
+            decision_engine = ae
+    
+    ##################################### Config 1 ######################################### 
+        elif args.config == '1':
             
             # Settings
             ngram_length = 5
-            w2v_vector_size = 5
-            w2v_window_size = 10
+            hidden_size = 2
             thread_aware = True
-            hidden_size = 64
-            hidden_layers = 3
-            batch_size = 256
-            w2v_epochs = 1000
             learning_rate = 0.003
-            window_length = 10
-            
+            batch_size = 256
+
             settings_dict['ngram_length'] = ngram_length
-            settings_dict['w2v_vector_size'] = w2v_vector_size
-            settings_dict['w2v_window_size'] = w2v_window_size
             settings_dict['thread_aware'] = thread_aware
-            settings_dict['hidden_size'] = hidden_size
-            settings_dict['hidden_layers'] = hidden_layers
-            settings_dict['batch_size'] = batch_size
-            settings_dict['w2v_epochs'] = w2v_epochs
             settings_dict['learning_rate'] = learning_rate
-            settings_dict['window_length'] = window_length
-            
+            settings_dict['batch_size'] = batch_size
+            settings_dict['hidden_size'] = hidden_size
+
             # Building Blocks
             inte = IntEmbedding()
-            w2v = W2VEmbedding(word=inte,
-                        vector_size=w2v_vector_size,
-                        window_size=w2v_window_size,
-                        epochs=w2v_epochs,
-                        thread_aware=thread_aware)
+
+            ohe = OneHotEncoding(inte)
+            ngram = Ngram([inte], thread_aware, ngram_length) 
+            ae = AE(ngram, learning_rate=args.learning_rate, mode=AEMode.LOSS, batch_size=batch_size)
+            decision_engine = ae
+    
+    ##################################### Config 2 ######################################### 
+        elif args.config == '2':
             
-            ngram = Ngram([w2v], thread_aware, ngram_length) 
-            ae = AE(input_vector=ngram,
-                hidden_size=hidden_size,
-                batch_size=batch_size)
-            
-            decision_engine = StreamSum(ae, thread_aware, window_length)
-            
-            ##################################### Config 1 ######################################### 
-            # elif args.config == '1':
-                
-            #     # Settings
-            #     ngram_length = 3
-            #     w2v_vector_size = 8
-            #     w2v_window_size = 15
-            #     thread_aware = True
-            #     hidden_size = 32
-            #     hidden_layers = 4
-            #     batch_size = 256
-            #     w2v_epochs = 1000
-            #     learning_rate = 0.003
-            #     window_length = 100       
-                
-                
-            #     settings_dict['ngram_length'] = ngram_length
-            #     settings_dict['w2v_vector_size'] = w2v_vector_size
-            #     settings_dict['w2v_window_size'] = w2v_window_size
-            #     settings_dict['thread_aware'] = thread_aware
-            #     settings_dict['hidden_size'] = hidden_size
-            #     settings_dict['hidden_layers'] = hidden_layers
-            #     settings_dict['batch_size'] = batch_size
-            #     settings_dict['w2v_epochs'] = w2v_epochs
-            #     settings_dict['learning_rate'] = learning_rate
-            #     settings_dict['window_length'] = window_length
-                
-                
-            #     # Building Blocks
+            # Settings
+            ngram_length = 7
+            hidden_size = 2
+            thread_aware = True
+            learning_rate = 0.003
+            batch_size = 256
 
-            #     inte = IntEmbedding()
+            settings_dict['ngram_length'] = ngram_length
+            settings_dict['thread_aware'] = thread_aware
+            settings_dict['learning_rate'] = learning_rate
+            settings_dict['batch_size'] = batch_size
+            settings_dict['hidden_size'] = hidden_size
 
-            #     w2v = W2VEmbedding(word=inte,
-            #                 vector_size=w2v_vector_size,
-            #                 window_size=w2v_window_size,
-            #                 epochs=w2v_epochs,
-            #                 thread_aware=thread_aware)
-                
-            #     ohe = OneHotEncoding(inte)
+            # Building Blocks
+            inte = IntEmbedding()
 
-            #     ngram = Ngram([w2v], thread_aware, ngram_length + 1) 
-
-            #     select = Select(ngram, start = 0, end = (w2v_vector_size * ngram_length)) 
-
-            #     mlp = MLP(select,
-            #         ohe,
-            #         hidden_size,
-            #         hidden_layers,
-            #         batch_size,
-            #         learning_rate,
-            #         # independent_validation
-            #     )
-                
-            #     decision_engine = StreamSum(mlp, thread_aware, window_length)
-            
-            # ##################################### Config 2 ######################################### 
-            # elif args.config == '2':
-                
-            #     # Settings
-            #     ngram_length = 7
-            #     thread_aware = True
-            #     hidden_size = 64
-            #     hidden_layers = 3
-            #     batch_size = 256
-            #     learning_rate = 0.003
-            #     window_length = 5
-
-            #     settings_dict['ngram_length'] = ngram_length
-            #     settings_dict['thread_aware'] = thread_aware
-            #     settings_dict['hidden_size'] = hidden_size
-            #     settings_dict['hidden_layers'] = hidden_layers
-            #     settings_dict['batch_size'] = batch_size
-            #     settings_dict['learning_rate'] = learning_rate
-            #     settings_dict['window_length'] = window_length
-                
-            #     # Calculate Embedding_size
-            #     temp_i = IntEmbedding()
-            #     temp_ohe = OneHotEncoding(temp_i)
-            #     mini_ids = IDS(dataloader, temp_ohe, False, False)
-            #     ohe_embedding_size = temp_ohe.get_embedding_size()
-
-            #     # Building Blocks
-            #     inte = IntEmbedding()
-                
-            #     ohe = OneHotEncoding(inte)
-                
-            #     ngram_ohe = Ngram([ohe], thread_aware, ngram_length + 1)
-                
-            #     select_ohe = Select(ngram_ohe, 0, (ngram_length * ohe_embedding_size)) 
-                
-            #     mlp = MLP(select_ohe,
-            #         ohe,
-            #         hidden_size,
-            #         hidden_layers,
-            #         batch_size,
-            #         learning_rate,
-            #         # independent_validation
-            #     )   
-        
-            #     decision_engine = StreamSum(mlp, thread_aware, window_length)
-                
+            ohe = OneHotEncoding(inte)
+            ngram = Ngram([inte], thread_aware, ngram_length) 
+            ae = AE(ngram, learning_rate=args.learning_rate, mode=AEMode.LOSS, batch_size=batch_size)
+            decision_engine = ae
         else:
             exit('Unknown configuration of MLP. Exiting.')
-        
-        
-    # Resetting seeds
-    torch.manual_seed(0)
-    random.seed(0)
-    numpy.random.seed(0)    
-        
-    ######## New IDS ########################
-    ids_retrained = IDS(data_loader=dataloader,
-        resulting_building_block=decision_engine,
-        plot_switch=False,
-        create_alarms=True)
+    
+        # Resetting seeds
+        torch.manual_seed(0)
+        random.seed(0)
+        numpy.random.seed(0)    
 
-    # Unloading datasets and managing thresholds        
-    if args.to_dataset_playing_back == 'training':
-        # Für Retraining
-        dataloader.unload_retraining_data() # Cleaning dataloader for performance issues
+        ######## New IDS ########################
+        ids_retrained = IDS(data_loader=dataloader,
+            resulting_building_block=decision_engine,
+            plot_switch=False,
+            create_alarms=True)
+    
+    elif args.mode == 'revalidation':
+        dataloader.set_revalidation_data(all_recordings)
+
+        # Keep the old IDS
+        ids_retrained = ids
+    
+    elif args.mode == 'conceptdrift':
+        
+        # Set new LR
+        ae.set_learning_rate(args.learning_rate) 
+        # Overwrite training samples
+        ae._training_set = set()
+        dataloader.set_retraining_data(all_recordings) # Fügt die neuen Trainingsbeispiele als zusätzliches Training ein.
+        dataloader.overwrite_training_data_with_retraining()
+        decision_engine = ae
+    
+        ######## New IDS ########################
+        ids_retrained = IDS(data_loader=dataloader,
+            resulting_building_block=decision_engine,
+            plot_switch=False,
+            create_alarms=True)
+    
+    if args.mode == 'revalidation':
+        pprint(f'Hopefully setting threshold to {performance.max_anomaly_score_fp }')  
+        ids_retrained.determine_threshold()
+        # ids_retrained.threshold = performance.max_anomaly_score_fp
+        # ids_retrained.performance._threshold = performance.max_anomaly_score_fp
+        dataloader.unload_revalidation_data()
+
+    elif args.mode == 'retraining' or args.mode == 'conceptdrift':
+        dataloader.unload_retraining_data()
         if args.freeze_on_retraining == 'True':
             pprint(f"Freezing Threshold on: {ids.threshold}")
             ids_retrained.threshold = ids.threshold
         else: 
             ids_retrained.determine_threshold()
-        
-    # elif args.to_dataset_playing_back == 'validation' and independent_validation: # Hier wird der Schwellenwert noch neu bestimmt.
-    elif args.to_dataset_playing_back == 'validation':
-        # Entweder
-        # ids_retrained.determine_threshold()  
-        
-        # Oder aber das hier. Damit garantiere ich, dass sich nur der Schwellenwert, nicht aber das MLP ändert.
-        ids_retrained.threshold = performance.max_anomaly_score_fp
-        
-        dataloader.unload_revalidation_data()
-    else:
-        sys.exit('Unhandled combination of playing back dataset and freezing threshold. Abborting.')
+    
 
     pprint("At evaluation:")
     performance_new = ids_retrained.detect_parallel()
     pprint(performance_new)        
     results_new = performance_new.get_results()
     pprint(results_new)
-    
-    # pprint(ae._result_dict)
+
     # Preparing second results
-    algorithm_name = f"ae_retrained"
+    algorithm_name = 'ae_retrained'
     # config_name = f"algorithm_{algorithm_name}_c_{args.config}_p_{args.play_back_count_alarms}_i_{args.use_independent_validation}_lr_{args.learning_rate}_n_{ngram_length}_w_{window_length}_t_{thread_aware}"
-    config_name = f"algorithm_{algorithm_name}_c_{args.config}_p_{args.play_back_count_alarms}_lr_{args.learning_rate}_n_{ngram_length}_w_{window_length}_t_{thread_aware}"
+    config_name = f"algorithm_{algorithm_name}_c_{args.config}_p_{args.play_back_count_alarms}_m_{args.mode}_lr_{args.learning_rate}_n_{ngram_length}_w_{window_length}_t_{thread_aware}"
 
     # Enrich results with configuration 
     results_new['algorithm'] = algorithm_name
@@ -782,7 +558,7 @@ if __name__ == '__main__':
     results_new['config'] = ids.get_config() # Produces strangely formatted Config-Print
     results_new['scenario'] =  args.version + "/" + args.scenario
     # result_new_path = f"{args.results}/results_{algorithm_name}_config_{args.config}_p_{args.play_back_count_alarms}_i_{args.use_independent_validation}_lr_{args.learning_rate}_{args.version}_{args.scenario}.json"
-    result_new_path = f"{args.results}/results_{algorithm_name}_config_{args.config}_p_{args.play_back_count_alarms}_lr_{args.learning_rate}_{args.version}_{args.scenario}.json"
+    result_new_path = f"{args.results}/results_{algorithm_name}_config_{args.config}_p_{args.play_back_count_alarms}_m_{args.mode}_lr_{args.learning_rate}_{args.version}_{args.scenario}.json"
     # Save results
     save_to_json(results_new, result_new_path) 
     with open(f"{args.results}/alarms_{config_name}_{args.version}_{args.scenario}.json", 'w') as jsonfile:
