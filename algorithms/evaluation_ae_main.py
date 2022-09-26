@@ -212,7 +212,7 @@ if __name__ == '__main__':
             sys.exit(f'Can\'t change the learning rate when use retraining mode. Default learning rate is {LEARNING_RATE_CONSTANT}.')
     
      
-    pprint("Performing Host-based Intrusion Detection with MLP:")
+    pprint("Performing Host-based Intrusion Detection with AE:")
     pprint(f"Version: {args.version}") 
     pprint(f"Scenario: {args.scenario}")
     pprint(f"Configuration: {args.config}")

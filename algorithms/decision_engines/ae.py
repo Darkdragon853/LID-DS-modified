@@ -6,6 +6,8 @@ import torch.utils.data.dataset as td
 import torch.nn as nn
 from tqdm import tqdm
 import math
+import numpy
+import random
 
 from dataloader.syscall import Syscall
 from algorithms.building_block import BuildingBlock
@@ -160,10 +162,15 @@ class AE(BuildingBlock):
         best_weights = {}
         training_start_time = time.time()
 
+        # Eliminate randomness
+        generator = torch.Generator()
+        generator.manual_seed(0)
+
+
         ae_ds = AEDataset(self._training_set)
         ae_ds_val = AEDataset(self._validation_set)
-        data_loader = torch.utils.data.DataLoader(ae_ds, batch_size=self._batch_size, shuffle=True)
-        val_data_loader = torch.utils.data.DataLoader(ae_ds_val, batch_size=self._batch_size, shuffle=True)
+        data_loader = torch.utils.data.DataLoader(ae_ds, batch_size=self._batch_size, shuffle=False, worker_init_fn=seed_worker, generator=generator)
+        val_data_loader = torch.utils.data.DataLoader(ae_ds_val, batch_size=self._batch_size, shuffle=False, worker_init_fn=seed_worker, generator=generator)
         
         with tqdm(total=self._max_training_time, unit=" epoch", bar_format="{l_bar}{bar}| {n:0.1f}/{total}s") as bar:              
             last_ts = time.time()            
@@ -275,3 +282,8 @@ class AE(BuildingBlock):
     
     def set_learning_rate(self, learning_rate):
         self._learning_rate = learning_rate
+        
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    numpy.random.seed(worker_seed)
+    random.seed(worker_seed)
