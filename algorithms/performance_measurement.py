@@ -1,5 +1,5 @@
 from __future__ import annotations
-from copy import deepcopy
+from decimal import Decimal
 
 from dataloader.syscall import Syscall
 from dataloader.base_recording import BaseRecording
@@ -44,8 +44,8 @@ class Performance:
             self.alarms = None
             
         # Anomaly scores
-        self.max_anomaly_score_fp = 0.0
-        self.min_anomaly_score_tp = 100000.0
+        self.max_anomaly_score_fp = Decimal('0.0')
+        self.min_anomaly_score_tp = Decimal('100000.0')
          
             
     def set_threshold(self, threshold: float):
