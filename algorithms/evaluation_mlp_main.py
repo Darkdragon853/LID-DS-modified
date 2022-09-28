@@ -107,6 +107,7 @@ def construct_Syscalls(container: FalseAlertContainer) -> FalseAlertResult:
     
     if container.thread_aware:
         # Check ob es noch Syscalls vor dem Anfang des Alarms - Fenster gibt
+        number_of_required_previous_calls = container.ngram_length + container.window_length
         backwards_counter = max([alarm.first_line_id - container.window_length -1, 0]) 
         if backwards_counter != 0:
             # Sammle alle bisher gefundenen ThreadIDs, deren N-Gramme wir nun befüllen müssen
@@ -125,7 +126,7 @@ def construct_Syscalls(container: FalseAlertContainer) -> FalseAlertResult:
            # Erschaffe eine kleinere Liste an Systemcalls vom Anfang der Datei bis zum Ende des Alarms. Drehe sie dann um.
             temp_list.reverse() 
             # Solange wir nich für jede ThreadID genau ngram_length viele Syscalls gefunden haben und noch nicht am Anfang der Datei sind
-            while(not enough_calls(dict, container.ngram_length) and backwards_counter != 0):
+            while(not enough_calls(dict, number_of_required_previous_calls) and backwards_counter != 0):
                 # Finde den Systemcall, der die gleiche LineID wie unser BackwardsCounter hat
                 current_call = None
                 for call in temp_list:
@@ -137,7 +138,7 @@ def construct_Syscalls(container: FalseAlertContainer) -> FalseAlertResult:
                     backwards_counter -=1 
                     continue
                 # Sollten noch Systemcalls für diese ThreadID fehlen, dann füge diese am Anfang der Liste hinzu
-                if current_call.thread_id() in dict.keys() and dict[current_call.thread_id()] < container.ngram_length:
+                if current_call.thread_id() in dict.keys() and dict[current_call.thread_id()] < number_of_required_previous_calls:
                     dict[current_call.thread_id()] += 1 
                     systemcall_list.insert(0, current_call)
                         
@@ -581,7 +582,6 @@ if __name__ == '__main__':
     results = performance.get_results()
     pprint(results)
 
-    exit()
     # Preparing results
     
     # config_name = f"algorithm_mlp_c_{args.config}_i_{args.use_independent_validation}_lr_{args.learning_rate}_n_{ngram_length}_t_{thread_aware}"
@@ -812,22 +812,24 @@ if __name__ == '__main__':
                 settings_dict['window_length'] = window_length
                 
                 # Calculate Embedding_size
-                temp_i = IntEmbedding()
-                temp_ohe = OneHotEncoding(temp_i)
-                mini_ids = IDS(dataloader, temp_ohe, False, False)
-                ohe_embedding_size = temp_ohe.get_embedding_size()
+                # temp_i = IntEmbedding()
+                # temp_ohe = OneHotEncoding(temp_i)
+                # mini_ids = IDS(dataloader, temp_ohe, False, False)
+                # ohe_embedding_size = temp_ohe.get_embedding_size()
 
                 # Building Blocks
-                inte = IntEmbedding()
+                # inte = IntEmbedding()
                 
-                ohe = OneHotEncoding(inte)
+                 
+                # Benutze hier das alte OHE, da wir sonst Probleme in der Länge des OHEs bekommen könnten. Das orientiert sich ja an den Trainingdaten.
+                ohe = OneHotEncoding(inte, already_trained=True)
                 
                 ngram_ohe = Ngram([ohe], thread_aware, ngram_length + 1)
                 
                 select_ohe = Select(ngram_ohe, 0, (ngram_length * ohe_embedding_size)) 
                 
                 if args.use_independent_validation == 'True':
-                    mlp = MLP(select,
+                    mlp = MLP(select_ohe,
                         ohe,
                         hidden_size,
                         hidden_layers,
@@ -838,7 +840,7 @@ if __name__ == '__main__':
                 
                 # False-Fall
                 else: 
-                    mlp = MLP(select,
+                    mlp = MLP(select_ohe,
                         ohe,
                         hidden_size,
                         hidden_layers,
@@ -884,7 +886,7 @@ if __name__ == '__main__':
                 select_ohe = Select(ngram_ohe, 0, (ngram_length * ohe_embedding_size)) 
             
                 if args.use_independent_validation == 'True':
-                    mlp = MLP(select,
+                    mlp = MLP(select_ohe,
                         ohe,
                         hidden_size,
                         hidden_layers,
@@ -895,7 +897,7 @@ if __name__ == '__main__':
                 
                 # False-Fall
                 else: 
-                    mlp = MLP(select,
+                    mlp = MLP(select_ohe,
                         ohe,
                         hidden_size,
                         hidden_layers,
@@ -994,12 +996,16 @@ if __name__ == '__main__':
     
     elif args.mode == 'conceptdrift':
         
+        # Hier das OHE freezen, damit es seine Größe nicht verändern kann, sondern auch alle neuen Calls in den Extra-Slot dafür legt.
+        ohe.set_already_trained(True)
+        
         # Set new LR
         mlp.set_learning_rate(args.learning_rate)
         # Overwrite training samples
         mlp._training_set = set()
         dataloader.set_retraining_data(all_recordings) # Fügt die neuen Trainingsbeispiele als zusätzliches Training ein.
         dataloader.overwrite_training_data_with_retraining()
+        
         decision_engine = StreamSum(mlp, thread_aware, window_length)
     
         ######## New IDS ########################
@@ -1009,8 +1015,10 @@ if __name__ == '__main__':
             create_alarms=True)
     
     if args.mode == 'revalidation':
-        # pprint(f'Hopefully setting threshold to {performance.max_anomaly_score_fp }')  
+        pprint(f'Hopefully setting threshold to {performance.max_anomaly_score_fp }')  
         ids_retrained.determine_threshold()
+        # ids_retrained.threshold = performance.max_anomaly_score_fp
+        # ids_retrained.performance._threshold = performance.max_anomaly_score_fp
         dataloader.unload_revalidation_data()
 
     elif args.mode == 'retraining' or args.mode == 'conceptdrift':
