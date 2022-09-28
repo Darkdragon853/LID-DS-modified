@@ -7,11 +7,12 @@ class OneHotEncoding(BuildingBlock):
         convert input to One Hot Encoding tuple
     """
 
-    def __init__(self, input: BuildingBlock):
+    def __init__(self, input: BuildingBlock, already_trained = False):
         super().__init__()
         self._input_to_int_dict = {}
         self._int_to_ohe_dict = {}
         self._input_bb = input       
+        self._already_trained = already_trained
 
     def depends_on(self):
         return [self._input_bb]
@@ -22,11 +23,14 @@ class OneHotEncoding(BuildingBlock):
             integer is current length of forward_dict
             the last index is for unknown input (residual class)
         """
-        input = self._input_bb.get_result(syscall)
-        if input is not None:
-            if input not in self._input_to_int_dict:
-                self._input_to_int_dict[input] = len(self._input_to_int_dict)
-
+        
+        if not self._already_trained:
+            input = self._input_bb.get_result(syscall)
+            if input is not None:
+                if input not in self._input_to_int_dict:
+                    self._input_to_int_dict[input] = len(self._input_to_int_dict)
+        else: 
+            pass
     def fit(self):
         """
         calculates the ohe for each seen input in training
@@ -55,3 +59,6 @@ class OneHotEncoding(BuildingBlock):
     
     def get_embedding_size(self):
         return len(self._int_to_ohe_dict)
+    
+    def set_already_trained(self, already_trained):
+        self._already_trained = already_trained
