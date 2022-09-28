@@ -24,6 +24,7 @@ from algorithms.performance_measurement import Performance
 from dataloader.dataloader_factory import dataloader_factory
 from dataloader.direction import Direction
 
+from torch.multiprocessing import set_start_method
 
 # CONSTANTS
 LEARNING_RATE_CONSTANT = 0.001
@@ -175,7 +176,7 @@ def parse_cli_arguments():
                                                      'ZipSlip'], required=True, help='Which scenario of the LID-DS?')
     # parser.add_argument('--algorithm', '-a', choices=['stide',
     #                                                   'mlp',
-    #                                                   'ae',
+    #                                                       'ae',
     #                                                   'som'], required=True, help='Which algorithm shall perform the detection?')
     parser.add_argument('--play_back_count_alarms', '-p' , choices=['1', '2', '3', 'all'], default='all', help='Number of False Alarms that shall be played back or all.')
     parser.add_argument('--results', '-r', default='results', help='Path for the results of the evaluation')
@@ -191,6 +192,8 @@ def parse_cli_arguments():
 
 # Startpunkt
 if __name__ == '__main__':
+   
+    set_start_method('forkserver')
     
     args = parse_cli_arguments()
     
@@ -240,7 +243,6 @@ if __name__ == '__main__':
             
         # Settings
         ngram_length = 3
-        hidden_size = 2
         thread_aware = True
         learning_rate = 0.003
         batch_size = 256
@@ -250,7 +252,6 @@ if __name__ == '__main__':
         settings_dict['thread_aware'] = thread_aware
         settings_dict['learning_rate'] = learning_rate
         settings_dict['batch_size'] = batch_size
-        settings_dict['hidden_size'] = hidden_size
         settings_dict['window_length'] = window_length
         
         # Building Blocks
@@ -266,7 +267,6 @@ if __name__ == '__main__':
             
         # Settings
         ngram_length = 5
-        hidden_size = 2
         thread_aware = True
         learning_rate = 0.003
         batch_size = 256
@@ -276,7 +276,6 @@ if __name__ == '__main__':
         settings_dict['thread_aware'] = thread_aware
         settings_dict['learning_rate'] = learning_rate
         settings_dict['batch_size'] = batch_size
-        settings_dict['hidden_size'] = hidden_size
         settings_dict['window_length'] = window_length
         
         # Building Blocks
@@ -292,7 +291,6 @@ if __name__ == '__main__':
             
         # Settings
         ngram_length = 7
-        hidden_size = 2
         thread_aware = True
         learning_rate = 0.003
         batch_size = 256
@@ -302,7 +300,6 @@ if __name__ == '__main__':
         settings_dict['thread_aware'] = thread_aware
         settings_dict['learning_rate'] = learning_rate
         settings_dict['batch_size'] = batch_size
-        settings_dict['hidden_size'] = hidden_size
         settings_dict['window_length'] = window_length
         
         # Building Blocks
@@ -507,6 +504,8 @@ if __name__ == '__main__':
     
     elif args.mode == 'conceptdrift':
         
+        # Freeze OHE
+        ohe.set_already_trained(True)
         # Set new LR
         ae.set_learning_rate(args.learning_rate) 
         # Overwrite training samples
