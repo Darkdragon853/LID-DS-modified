@@ -75,7 +75,8 @@ def construct_Syscalls(container: FalseAlertContainer) -> FalseAlertResult:
     systemcall_list = [systemcall for systemcall in current_recording.syscalls() if systemcall.line_id >= max([alarm.first_line_id - container.window_length, 0]) and systemcall.line_id <= alarm.last_line_id] 
     
     if container.thread_aware:
-            
+        
+        number_of_required_previous_calls = container.ngram_length + container.window_length
         backwards_counter = max([alarm.first_line_id - container.window_length -1, 0]) 
         if backwards_counter != 0:
             thread_id_set = set([systemcall.thread_id() for systemcall in systemcall_list])
@@ -91,9 +92,9 @@ def construct_Syscalls(container: FalseAlertContainer) -> FalseAlertResult:
                 if x.line_id == alarm.last_line_id:
                     break 
            
+            # Wir gehen dadurch von hinten nach vorne durch die Liste.
             temp_list.reverse() 
-                
-            while(not enough_calls(dict, container.ngram_length) and backwards_counter != 0):
+            while(not enough_calls(dict, number_of_required_previous_calls) and backwards_counter != 0):
                 current_call = None
                 for call in temp_list:
                     if call.line_id == backwards_counter:
@@ -104,7 +105,7 @@ def construct_Syscalls(container: FalseAlertContainer) -> FalseAlertResult:
                     backwards_counter -=1 
                     continue
                     
-                if current_call.thread_id() in dict.keys() and dict[current_call.thread_id()] < container.ngram_length:
+                if current_call.thread_id() in dict.keys() and dict[current_call.thread_id()] < number_of_required_previous_calls:
                     dict[current_call.thread_id()] += 1 
                     systemcall_list.insert(0, current_call)
                         

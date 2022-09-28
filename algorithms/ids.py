@@ -1,4 +1,3 @@
-from http.client import ImproperConnectionState
 from os import cpu_count
 from tqdm import tqdm
 from typing import Type
