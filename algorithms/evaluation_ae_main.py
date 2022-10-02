@@ -2,6 +2,8 @@ from multiprocessing import cpu_count
 import os
 import sys
 import json
+import datetime
+from json import JSONEncoder
 from pprint import pprint
 from argparse import ArgumentParser
 import torch
@@ -25,6 +27,8 @@ from dataloader.dataloader_factory import dataloader_factory
 from dataloader.direction import Direction
 
 from torch.multiprocessing import set_start_method
+
+from dataloader.syscall import Syscall
 
 # CONSTANTS
 LEARNING_RATE_CONSTANT = 0.001
@@ -154,6 +158,53 @@ def construct_Syscalls(container: FalseAlertContainer) -> FalseAlertResult:
     return result  
 
 
+class MyEncoder(JSONEncoder):
+    def default(self, o):
+        return o.__dict__
+
+def json_default(value):
+    if isinstance(value, datetime.date):
+        return dict(year=value.year, month=value.month, day=value.day)
+    else:
+        return value.__dict__
+
+# Speichere die künstlichen recordings um auch lange Laufzeiten möglich zu machen.
+def save_artifical_recordings(recordings, path: str):
+    """ Speichert die Künstlichen Recordings ab.
+
+    Args:
+        recordings (List[BaseRecording]): Die zu speichernden, künstlichen Recordings.
+        path (str): Path to the file.
+    """
+
+    listofresults = []
+    # Erzeuge die richtige Form
+    for recording in recordings: 
+        result = {
+        'algorithm': str,
+        'recording_name': str,
+        'syscalls': [Syscall]
+        }
+            
+        result['algorithm'] = 'AE'
+        result['recording_name'] = recording.name
+        result['syscalls'] = recording.syscalls()
+        listofresults.append(result)
+    pprint(recording.syscalls())
+
+    # Wenn der Ordner noch nicht existiert, erzeuge ihn.
+    if not os.path.exists(os.path.dirname(path)):
+        os.mkdir(os.path.dirname(path))
+    with open(path, 'w') as file:
+        json.dump(listofresults, file, indent=2, cls=MyEncoder, default=json_default)
+
+# Lade die schon erzeugten künstlichen Recordings.
+def load_artifical_recordings():
+    pass
+    
+    
+
+
 # Argument Parser für bessere die Nutzbarkeit eines einzelnen Scripts, welches dann auf dem Cluster gecallt wird.
 def parse_cli_arguments(): 
     parser = ArgumentParser(description='Playing Back False-Positives Pipeline')
@@ -176,7 +227,7 @@ def parse_cli_arguments():
                                                      'ZipSlip'], required=True, help='Which scenario of the LID-DS?')
     # parser.add_argument('--algorithm', '-a', choices=['stide',
     #                                                   'mlp',
-    #                                                       'ae',
+    #                                                   'ae',
     #                                                   'som'], required=True, help='Which algorithm shall perform the detection?')
     parser.add_argument('--play_back_count_alarms', '-p' , choices=['1', '2', '3', 'all'], default='all', help='Number of False Alarms that shall be played back or all.')
     parser.add_argument('--results', '-r', default='results', help='Path for the results of the evaluation')
@@ -241,77 +292,43 @@ if __name__ == '__main__':
     ##################################### Config 0 ######################################### 
     if args.config == '0':
             
-        # Settings
         ngram_length = 3
         thread_aware = True
-        learning_rate = 0.003
         batch_size = 256
         window_length = 1
-        
-        settings_dict['ngram_length'] = ngram_length
-        settings_dict['thread_aware'] = thread_aware
-        settings_dict['learning_rate'] = learning_rate
-        settings_dict['batch_size'] = batch_size
-        settings_dict['window_length'] = window_length
-        
-        # Building Blocks
-        inte = IntEmbedding()
-        
-        ohe = OneHotEncoding(inte)
-        ngram = Ngram([ohe], thread_aware, ngram_length) 
-        ae = AE(ngram, learning_rate=args.learning_rate, mode=AEMode.LOSS, batch_size=batch_size)
-        decision_engine = ae
     
     ##################################### Config 1 ######################################### 
     elif args.config == '1':
             
-        # Settings
         ngram_length = 5
         thread_aware = True
-        learning_rate = 0.003
         batch_size = 256
         window_length = 1
-        
-        settings_dict['ngram_length'] = ngram_length
-        settings_dict['thread_aware'] = thread_aware
-        settings_dict['learning_rate'] = learning_rate
-        settings_dict['batch_size'] = batch_size
-        settings_dict['window_length'] = window_length
-        
-        # Building Blocks
-        inte = IntEmbedding()
-        
-        ohe = OneHotEncoding(inte)
-        ngram = Ngram([ohe], thread_aware, ngram_length) 
-        ae = AE(ngram, learning_rate=args.learning_rate, mode=AEMode.LOSS, batch_size=batch_size)
-        decision_engine = ae
     
     ##################################### Config 2 ######################################### 
     elif args.config == '2':
             
-        # Settings
         ngram_length = 7
         thread_aware = True
-        learning_rate = 0.003
         batch_size = 256
         window_length = 1
         
-        settings_dict['ngram_length'] = ngram_length
-        settings_dict['thread_aware'] = thread_aware
-        settings_dict['learning_rate'] = learning_rate
-        settings_dict['batch_size'] = batch_size
-        settings_dict['window_length'] = window_length
-        
-        # Building Blocks
-        inte = IntEmbedding()
-        
-        ohe = OneHotEncoding(inte)
-        ngram = Ngram([ohe], thread_aware, ngram_length) 
-        ae = AE(ngram, learning_rate=args.learning_rate, mode=AEMode.LOSS, batch_size=batch_size)
-        decision_engine = ae
-    
     else:
         exit('Unknown configuration of MLP. Exiting.')
+        
+    settings_dict['ngram_length'] = ngram_length
+    settings_dict['thread_aware'] = thread_aware
+    settings_dict['batch_size'] = batch_size
+    settings_dict['window_length'] = window_length
+        
+    # Building Blocks
+    inte = IntEmbedding()
+        
+    ohe = OneHotEncoding(inte)
+    ngram = Ngram([ohe], thread_aware, ngram_length) 
+    ae = AE(ngram, mode=AEMode.LOSS, batch_size=batch_size, max_training_time=172800)
+    decision_engine = ae    
+        
         
     
     # Stopping Randomness
@@ -337,10 +354,8 @@ if __name__ == '__main__':
     results = performance.get_results()
     pprint(results)
 
-    exit()
+
     # Preparing results
-    
-    # config_name = f"algorithm_ae_c_{args.config}_i_{args.use_independent_validation}_lr_{args.learning_rate}_n_{ngram_length}_t_{thread_aware}"
     config_name = f"algorithm_ae_c_{args.config}_lr_{args.learning_rate}_n_{ngram_length}_t_{thread_aware}"
     
     
@@ -351,7 +366,6 @@ if __name__ == '__main__':
         
     results['config'] = ids.get_config() # Produces strangely formatted Config-Print
     results['scenario'] =  args.version + "/" + args.scenario
-    # result_path = f"{args.results}/results_ae_config_{args.config}_i_{args.use_independent_validation}_lr_{args.learning_rate}_{args.version}_{args.scenario}.json"
     result_path = f"{args.results}/results_ae_config_{args.config}_lr_{args.learning_rate}_{args.version}_{args.scenario}.json"
 
     # Saving results
@@ -404,9 +418,11 @@ if __name__ == '__main__':
     if not all_recordings:
         exit(f'Percentage of {args.play_back_percentage} playing back alarms lead to playing back zero false alarms. Program stops.')
     
+    # Hier sind die False Alarms jetzt alle fertig gebaut.
+    false_alert_path = f'{args.base_path}/False_Alerts/{args.version}/{args.scenario}/ae_false_alerts.dump'
+    save_artifical_recordings(deepcopy(all_recordings), false_alert_path)
     
-    
-    
+
     if args.mode == 'retraining':
         dataloader.set_retraining_data(all_recordings) # Fügt die neuen Trainingsbeispiele als zusätzliches Training ein.
     
@@ -414,76 +430,44 @@ if __name__ == '__main__':
         
         if args.config == '0':
             
-            # Settings
             ngram_length = 3
             hidden_size = 2
             thread_aware = True
-            learning_rate = 0.003
             batch_size = 256
 
-            settings_dict['ngram_length'] = ngram_length
-            settings_dict['thread_aware'] = thread_aware
-            settings_dict['learning_rate'] = learning_rate
-            settings_dict['batch_size'] = batch_size
-            settings_dict['hidden_size'] = hidden_size
-
-            # Building Blocks
-            inte = IntEmbedding()
-
-            ohe = OneHotEncoding(inte)
-            ngram = Ngram([inte], thread_aware, ngram_length) 
-            ae = AE(ngram, learning_rate=args.learning_rate, mode=AEMode.LOSS, batch_size=batch_size)
-            decision_engine = ae
-    
     ##################################### Config 1 ######################################### 
         elif args.config == '1':
             
-            # Settings
             ngram_length = 5
             hidden_size = 2
             thread_aware = True
-            learning_rate = 0.003
             batch_size = 256
 
-            settings_dict['ngram_length'] = ngram_length
-            settings_dict['thread_aware'] = thread_aware
-            settings_dict['learning_rate'] = learning_rate
-            settings_dict['batch_size'] = batch_size
-            settings_dict['hidden_size'] = hidden_size
-
-            # Building Blocks
-            inte = IntEmbedding()
-
-            ohe = OneHotEncoding(inte)
-            ngram = Ngram([inte], thread_aware, ngram_length) 
-            ae = AE(ngram, learning_rate=args.learning_rate, mode=AEMode.LOSS, batch_size=batch_size)
-            decision_engine = ae
-    
     ##################################### Config 2 ######################################### 
         elif args.config == '2':
             
-            # Settings
             ngram_length = 7
             hidden_size = 2
             thread_aware = True
-            learning_rate = 0.003
             batch_size = 256
-
-            settings_dict['ngram_length'] = ngram_length
-            settings_dict['thread_aware'] = thread_aware
-            settings_dict['learning_rate'] = learning_rate
-            settings_dict['batch_size'] = batch_size
-            settings_dict['hidden_size'] = hidden_size
-
-            # Building Blocks
-            inte = IntEmbedding()
-
-            ohe = OneHotEncoding(inte)
-            ngram = Ngram([inte], thread_aware, ngram_length) 
-            ae = AE(ngram, learning_rate=args.learning_rate, mode=AEMode.LOSS, batch_size=batch_size)
-            decision_engine = ae
+            
         else:
             exit('Unknown configuration of MLP. Exiting.')
+    
+        # Settings dict
+        settings_dict['ngram_length'] = ngram_length
+        settings_dict['thread_aware'] = thread_aware
+        settings_dict['learning_rate'] = args.learning_rate
+        settings_dict['batch_size'] = batch_size
+        settings_dict['hidden_size'] = hidden_size
+        
+        # Building Blocks
+        inte = IntEmbedding()
+        ohe = OneHotEncoding(inte)
+        ngram = Ngram([ohe], thread_aware, ngram_length) 
+        ae = AE(ngram, learning_rate=args.learning_rate, mode=AEMode.LOSS, batch_size=batch_size)
+        decision_engine = ae
+    
     
         # Resetting seeds
         torch.manual_seed(0)
