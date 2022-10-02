@@ -812,17 +812,16 @@ if __name__ == '__main__':
                 settings_dict['window_length'] = window_length
                 
                 # Calculate Embedding_size
-                # temp_i = IntEmbedding()
-                # temp_ohe = OneHotEncoding(temp_i)
-                # mini_ids = IDS(dataloader, temp_ohe, False, False)
-                # ohe_embedding_size = temp_ohe.get_embedding_size()
+                temp_i = IntEmbedding()
+                temp_ohe = OneHotEncoding(temp_i)
+                mini_ids = IDS(dataloader, temp_ohe, False, False)
+                ohe_embedding_size = temp_ohe.get_embedding_size()
 
                 # Building Blocks
-                # inte = IntEmbedding()
+                inte = IntEmbedding()
                 
-                 
                 # Benutze hier das alte OHE, da wir sonst Probleme in der Länge des OHEs bekommen könnten. Das orientiert sich ja an den Trainingdaten.
-                ohe = OneHotEncoding(inte, already_trained=True)
+                ohe = OneHotEncoding(inte)
                 
                 ngram_ohe = Ngram([ohe], thread_aware, ngram_length + 1)
                 
