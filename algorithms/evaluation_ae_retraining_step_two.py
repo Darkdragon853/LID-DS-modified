@@ -35,25 +35,6 @@ from dataloader.syscall import Syscall
 # CONSTANTS
 LEARNING_RATE_CONSTANT = 0.001
 
-    
-    
-class FalseAlertResult:
-    def __init__(self, name, syscalls) -> None:
-        self.name = name 
-        self.syscalls = syscalls
-        self.structure = {name: syscalls}
-        
-    def add(left: 'FalseAlertResult', right: 'FalseAlertResult') -> 'FalseAlertResult':
-        result = FalseAlertResult(right.name, right.syscalls)
-        result.structure = left.structure        
-        result.structure[right.name] = right.syscalls
-
-        return result
-    
-    def __repr__(self) -> str:
-        return f"FalseAlertResult: Name: {self.name}, Structure: {self.structure}"
-
-
 # Brauche ich um die Systemcalls dem Trainingsdatensatz hinzuzufügen
 class ArtificialRecording:  
     def __init__(self, name, syscalls):
@@ -65,52 +46,6 @@ class ArtificialRecording:
         
     def __repr__(self) -> str:
         return f"ArtificialRecording, Name: {self.name}, Nr. of Systemcalls: {len(self._syscalls)}"
-
-
-
-class MyEncoder(JSONEncoder):
-    def default(self, o):
-        return o.__dict__
-
-def json_default(value):
-    if isinstance(value, datetime.date):
-        return dict(year=value.year, month=value.month, day=value.day)
-    else:
-        return value.__dict__
-
-# Speichere die künstlichen recordings um auch lange Laufzeiten möglich zu machen.
-def save_artifical_recordings(recordings, path: str):
-    """ Speichert die Künstlichen Recordings ab.
-
-    Args:
-        recordings (List[BaseRecording]): Die zu speichernden, künstlichen Recordings.
-        path (str): Path to the file.
-    """
-
-    listofresults = []
-    # Erzeuge die richtige Form
-    for recording in recordings: 
-        result = {
-        'algorithm': str,
-        'recording_name': str,
-        'syscalls': [Syscall]
-        }
-            
-        result['algorithm'] = 'AE'
-        result['recording_name'] = recording.name
-        result['syscalls'] = recording.syscalls()
-        listofresults.append(result)
-    pprint(recording.syscalls())
-
-    # Wenn der Ordner noch nicht existiert, erzeuge ihn.
-    if not os.path.exists(os.path.dirname(path)):
-        os.mkdir(os.path.dirname(path))
-    with open(path, 'w') as file:
-        json.dump(listofresults, file, indent=2, cls=MyEncoder, default=json_default)
-
-
-# def custom_decode(value):
-#     pprint(f'Value here: {value}')
 
 # Lade die schon erzeugten künstlichen Recordings.
 def load_artifical_recordings(path) -> List[ArtificialRecording]:

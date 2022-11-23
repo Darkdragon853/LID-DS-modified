@@ -1,3 +1,4 @@
+from decimal import Decimal
 from enum import Enum
 from functools import lru_cache
 import time
@@ -270,7 +271,7 @@ class AE(BuildingBlock):
                 rl.extend(hidden)
                 result = tuple(rl)
 
-            return result    
+            return Decimal(f'{result}')  
 
 
     def _calculate(self, syscall: Syscall):

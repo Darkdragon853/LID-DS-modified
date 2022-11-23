@@ -190,20 +190,12 @@ def save_artifical_recordings(recordings, path: str):
         result['recording_name'] = recording.name
         result['syscalls'] = recording.syscalls()
         listofresults.append(result)
-    pprint(recording.syscalls())
 
     # Wenn der Ordner noch nicht existiert, erzeuge ihn.
     if not os.path.exists(os.path.dirname(path)):
         os.mkdir(os.path.dirname(path))
     with open(path, 'w') as file:
         json.dump(listofresults, file, indent=2, cls=MyEncoder, default=json_default)
-
-# Lade die schon erzeugten künstlichen Recordings.
-def load_artifical_recordings():
-    pass
-    
-    
-
 
 # Argument Parser für bessere die Nutzbarkeit eines einzelnen Scripts, welches dann auf dem Cluster gecallt wird.
 def parse_cli_arguments(): 
@@ -420,7 +412,7 @@ if __name__ == '__main__':
     
     # Hier sind die False Alarms jetzt alle fertig gebaut.
     false_alert_path = f'{args.base_path}/False_Alerts/{args.version}/{args.scenario}/ae_false_alerts.dump'
-    save_artifical_recordings(deepcopy(all_recordings), false_alert_path)
+    save_artifical_recordings(all_recordings, false_alert_path)
     
 
     if args.mode == 'retraining':
